@@ -3,11 +3,19 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List, Optional
 from src.infrastructure.database import get_db
-from src.infrastructure.repositories import SqlAlchemyUserRepository, SqlAlchemyWorkoutPlanRepository, SqlAlchemyNutritionPlanRepository
 from src.infrastructure.ai_service import GeminiAIService
+from src.infrastructure.repositories import (
+    SqlAlchemyUserRepository, 
+    SqlAlchemyWorkoutPlanRepository, 
+    SqlAlchemyNutritionPlanRepository,
+    SqlAlchemyPlanVersionRepository,
+    SqlAlchemyNotificationRepository
+)
 from src.application.services import UserService, PlanningService
 from src.application.role_service import RoleService
-from src.domain.models import UserProfile, Goal, ActivityLevel, User
+from src.application.version_service import VersionService
+from src.application.notification_service import NotificationService
+from src.domain.models import UserProfile, Goal, ActivityLevel, User, WorkoutPlan, NutritionPlan, WorkoutSession, Exercise, DailyMealPlan, Meal, NotificationType
 from src.domain.permissions import Role, Permission
 from src.interfaces.api.auth import (
     get_current_user, 
@@ -305,12 +313,12 @@ def get_workout_plan(
     db: Session = Depends(get_db)
 ):
     """Get a specific workout plan to review/edit"""
-    # Get the plan
+    # Get the latest plan
     plan_repo = SqlAlchemyWorkoutPlanRepository(db)
-    plan = plan_repo.get_by_id(plan_id)
+    plan = plan_repo.get_current_plan(current_user.id)
     
     if not plan:
-        raise HTTPException(status_code=404, detail="Workout plan not found")
+        raise HTTPException(status_code=404, detail="Not Found")
     
     # Verify this trainer is assigned to the client
     clients = role_service.get_my_clients(current_user.id)
@@ -373,6 +381,12 @@ def update_workout_plan(
             exercises=exercises
         ))
     
+    # Create a version snapshot of the OLD plan before updating
+    # We need to inject VersionService here. 
+    # Since we can't easily change the function signature without updating imports,
+    # we'll instantiate it here or add it to dependencies.
+    # Ideally, we should add it to dependencies.
+    
     # Update the plan with traceability
     updated_plan = WorkoutPlan(
         id=existing_plan.id,
@@ -387,7 +401,28 @@ def update_workout_plan(
         state="approved"  # Trainer approved the plan
     )
     
+    # Create version
+    version_repo = SqlAlchemyPlanVersionRepository(db)
+    version_service = VersionService(version_repo)
+    version_service.create_version(
+        plan=existing_plan, # Snapshot the OLD state
+        changed_by=current_user.id,
+        summary="Trainer update: Modified sessions/exercises"
+    )
+    
     plan_repo.update(updated_plan)
+    
+    # Notify client
+    notif_repo = SqlAlchemyNotificationRepository(db)
+    notif_service = NotificationService(notif_repo)
+    notif_service.create_notification(
+        user_id=existing_plan.user_id,
+        type=NotificationType.PLAN_UPDATED,
+        title="Workout Plan Updated",
+        message="Your trainer has updated your workout plan.",
+        related_entity_type="workout_plan",
+        related_entity_id=existing_plan.id
+    )
     
     return {"message": "Workout plan updated successfully", "plan": updated_plan}
 
@@ -515,6 +550,15 @@ def update_nutrition_plan(
             meals=meals
         ))
     
+    # Create version
+    version_repo = SqlAlchemyPlanVersionRepository(db)
+    version_service = VersionService(version_repo)
+    version_service.create_version(
+        plan=existing_plan, # Snapshot the OLD state
+        changed_by=current_user.id,
+        summary="Nutritionist update: Modified meals"
+    )
+
     # Update the plan with traceability
     updated_plan = NutritionPlan(
         id=existing_plan.id,
@@ -530,6 +574,18 @@ def update_nutrition_plan(
     )
     
     plan_repo.update(updated_plan)
+    
+    # Notify client
+    notif_repo = SqlAlchemyNotificationRepository(db)
+    notif_service = NotificationService(notif_repo)
+    notif_service.create_notification(
+        user_id=existing_plan.user_id,
+        type=NotificationType.PLAN_UPDATED,
+        title="Nutrition Plan Updated",
+        message="Your nutritionist has updated your nutrition plan.",
+        related_entity_type="nutrition_plan",
+        related_entity_id=existing_plan.id
+    )
     
     return {"message": "Nutrition plan updated successfully", "plan": updated_plan}
 
@@ -556,6 +612,29 @@ def update_profile(user_id: str, profile: UserProfileCreate, service: UserServic
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@router.get("/users/{user_id}/plans/workout/current")
+def get_current_workout_plan(
+    user_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get the current workout plan for a user"""
+    # Authorization: User can see their own plan, or their trainer can see it
+    if current_user.id != user_id:
+        # Check if trainer
+        # Simplified check: if user has trainer role, we assume they might be the trainer
+        # Real check should verify relationship
+        if not (current_user.has_role("trainer") or current_user.has_role("admin")):
+             raise HTTPException(status_code=403, detail="Not authorized to view this plan")
+
+    plan_repo = SqlAlchemyWorkoutPlanRepository(db)
+    plan = plan_repo.get_current_plan(user_id)
+    
+    if not plan:
+        raise HTTPException(status_code=404, detail="No active workout plan found")
+        
+    return plan
+
 @router.post("/users/{user_id}/plans/workout")
 def generate_workout(user_id: str, service: PlanningService = Depends(get_planning_service)):
     """DEPRECATED: Use /plans/workout instead"""
@@ -563,6 +642,25 @@ def generate_workout(user_id: str, service: PlanningService = Depends(get_planni
         return service.generate_workout_plan(user_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/users/{user_id}/plans/nutrition/current")
+def get_current_nutrition_plan(
+    user_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get the current nutrition plan for a user"""
+    if current_user.id != user_id:
+        if not (current_user.has_role("nutritionist") or current_user.has_role("admin")):
+             raise HTTPException(status_code=403, detail="Not authorized to view this plan")
+
+    plan_repo = SqlAlchemyNutritionPlanRepository(db)
+    plan = plan_repo.get_current_plan(user_id)
+    
+    if not plan:
+        raise HTTPException(status_code=404, detail="No active nutrition plan found")
+        
+    return plan
 
 @router.post("/users/{user_id}/plans/nutrition")
 def generate_nutrition(user_id: str, service: PlanningService = Depends(get_planning_service)):

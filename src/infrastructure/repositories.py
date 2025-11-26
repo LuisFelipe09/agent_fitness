@@ -1,9 +1,8 @@
-from typing import Optional
+from typing import Optional, List
 from sqlalchemy.orm import Session
-from src.domain.models import User, WorkoutPlan, NutritionPlan, UserProfile, Goal, ActivityLevel
-from src.domain.repositories import UserRepository, WorkoutPlanRepository, NutritionPlanRepository
-from .orm_models import UserORM, WorkoutPlanORM, NutritionPlanORM
-import json
+from src.domain.models import User, WorkoutPlan, NutritionPlan, WorkoutSession, Exercise, DailyMealPlan, Meal, PlanVersion, PlanComment, Notification, UserProfile, Goal, ActivityLevel
+from src.domain.repositories import UserRepository, WorkoutPlanRepository, NutritionPlanRepository, PlanVersionRepository, PlanCommentRepository, NotificationRepository
+from .orm_models import UserORM, WorkoutPlanORM, NutritionPlanORM, PlanVersionORM, PlanCommentORM, NotificationORM
 from dataclasses import asdict
 
 class SqlAlchemyUserRepository(UserRepository):
@@ -274,3 +273,184 @@ class SqlAlchemyNutritionPlanRepository(NutritionPlanRepository):
             plan_orm.modified_by = plan.modified_by
             plan_orm.state = plan.state
             self.db.commit()
+
+class SqlAlchemyPlanVersionRepository(PlanVersionRepository):
+    def __init__(self, db: Session):
+        self.db = db
+    
+    def save(self, version: PlanVersion) -> None:
+        version_orm = PlanVersionORM(
+            id=version.id,
+            plan_id=version.plan_id,
+            plan_type=version.plan_type,
+            version_number=version.version_number,
+            created_by=version.created_by,
+            created_at=version.created_at,
+            changes_summary=version.changes_summary,
+            data_snapshot=version.data_snapshot,
+            state_at_version=version.state_at_version
+        )
+        self.db.add(version_orm)
+        self.db.commit()
+    
+    def get_by_plan_id(self, plan_id: str) -> List[PlanVersion]:
+        versions_orm = self.db.query(PlanVersionORM).filter(PlanVersionORM.plan_id == plan_id).order_by(PlanVersionORM.version_number.desc()).all()
+        return [
+            PlanVersion(
+                id=v.id,
+                plan_id=v.plan_id,
+                plan_type=v.plan_type,
+                version_number=v.version_number,
+                created_by=v.created_by,
+                created_at=v.created_at,
+                changes_summary=v.changes_summary,
+                data_snapshot=v.data_snapshot,
+                state_at_version=v.state_at_version
+            )
+            for v in versions_orm
+        ]
+    
+    def get_by_id(self, version_id: str) -> Optional[PlanVersion]:
+        v = self.db.query(PlanVersionORM).filter(PlanVersionORM.id == version_id).first()
+        if not v:
+            return None
+        return PlanVersion(
+            id=v.id,
+            plan_id=v.plan_id,
+            plan_type=v.plan_type,
+            version_number=v.version_number,
+            created_by=v.created_by,
+            created_at=v.created_at,
+            changes_summary=v.changes_summary,
+            data_snapshot=v.data_snapshot,
+            state_at_version=v.state_at_version
+        )
+
+class SqlAlchemyPlanCommentRepository(PlanCommentRepository):
+    def __init__(self, db: Session):
+        self.db = db
+    
+    def save(self, comment: PlanComment) -> None:
+        comment_orm = PlanCommentORM(
+            id=comment.id,
+            plan_id=comment.plan_id,
+            plan_type=comment.plan_type,
+            author_id=comment.author_id,
+            author_role=comment.author_role,
+            content=comment.content,
+            created_at=comment.created_at,
+            edited_at=comment.edited_at,
+            is_internal=comment.is_internal
+        )
+        self.db.merge(comment_orm)  # Use merge to handle both insert and update
+        self.db.commit()
+    
+    def get_by_plan_id(self, plan_id: str) -> List[PlanComment]:
+        comments_orm = self.db.query(PlanCommentORM).filter(PlanCommentORM.plan_id == plan_id).order_by(PlanCommentORM.created_at.asc()).all()
+        return [
+            PlanComment(
+                id=c.id,
+                plan_id=c.plan_id,
+                plan_type=c.plan_type,
+                author_id=c.author_id,
+                author_role=c.author_role,
+                content=c.content,
+                created_at=c.created_at,
+                edited_at=c.edited_at,
+                is_internal=c.is_internal
+            )
+            for c in comments_orm
+        ]
+    
+    def get_by_id(self, comment_id: str) -> Optional[PlanComment]:
+        c = self.db.query(PlanCommentORM).filter(PlanCommentORM.id == comment_id).first()
+        if not c:
+            return None
+        return PlanComment(
+            id=c.id,
+            plan_id=c.plan_id,
+            plan_type=c.plan_type,
+            author_id=c.author_id,
+            author_role=c.author_role,
+            content=c.content,
+            created_at=c.created_at,
+            edited_at=c.edited_at,
+            is_internal=c.is_internal
+        )
+    
+    def delete(self, comment_id: str) -> None:
+        self.db.query(PlanCommentORM).filter(PlanCommentORM.id == comment_id).delete()
+        self.db.commit()
+
+class SqlAlchemyNotificationRepository(NotificationRepository):
+    def __init__(self, db: Session):
+        self.db = db
+    
+    def save(self, notification: Notification) -> None:
+        notification_orm = NotificationORM(
+            id=notification.id,
+            user_id=notification.user_id,
+            type=notification.type,
+            title=notification.title,
+            message=notification.message,
+            related_entity_type=notification.related_entity_type,
+            related_entity_id=notification.related_entity_id,
+            is_read=notification.is_read,
+            created_at=notification.created_at,
+            read_at=notification.read_at
+        )
+        self.db.merge(notification_orm)
+        self.db.commit()
+    
+    def get_by_user_id(self, user_id: str, unread_only: bool = False) -> List[Notification]:
+        query = self.db.query(NotificationORM).filter(NotificationORM.user_id == user_id)
+        if unread_only:
+            query = query.filter(NotificationORM.is_read == False)
+        
+        notifications_orm = query.order_by(NotificationORM.created_at.desc()).all()
+        return [
+            Notification(
+                id=n.id,
+                user_id=n.user_id,
+                type=n.type,
+                title=n.title,
+                message=n.message,
+                related_entity_type=n.related_entity_type,
+                related_entity_id=n.related_entity_id,
+                is_read=n.is_read,
+                created_at=n.created_at,
+                read_at=n.read_at
+            )
+            for n in notifications_orm
+        ]
+    
+    def get_by_id(self, notification_id: str) -> Optional[Notification]:
+        n = self.db.query(NotificationORM).filter(NotificationORM.id == notification_id).first()
+        if not n:
+            return None
+        return Notification(
+            id=n.id,
+            user_id=n.user_id,
+            type=n.type,
+            title=n.title,
+            message=n.message,
+            related_entity_type=n.related_entity_type,
+            related_entity_id=n.related_entity_id,
+            is_read=n.is_read,
+            created_at=n.created_at,
+            read_at=n.read_at
+        )
+    
+    def mark_as_read(self, notification_id: str) -> None:
+        from datetime import datetime
+        self.db.query(NotificationORM).filter(NotificationORM.id == notification_id).update(
+            {"is_read": True, "read_at": datetime.now()}
+        )
+        self.db.commit()
+    
+    def mark_all_as_read(self, user_id: str) -> None:
+        from datetime import datetime
+        self.db.query(NotificationORM).filter(NotificationORM.user_id == user_id, NotificationORM.is_read == False).update(
+            {"is_read": True, "read_at": datetime.now()}
+        )
+        self.db.commit()

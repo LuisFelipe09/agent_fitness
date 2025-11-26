@@ -1,19 +1,22 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from src.interfaces.api.routers import router
+from src.interfaces.api.routers import router as api_router
+from src.interfaces.api.advanced_routers import router as advanced_router
 from src.infrastructure.database import engine, Base
 import os
 
 # Create tables
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Fitness Agent API")
+app = FastAPI(title="AI Fitness Agent")
 
 # Mount static files
 static_dir = os.path.join(os.path.dirname(__file__), "../frontend")
 app.mount("/static", StaticFiles(directory=static_dir, html=True), name="static")
 
-app.include_router(router)
+# Include routers
+app.include_router(api_router)
+app.include_router(advanced_router)
 
 @app.get("/")
 def read_root():

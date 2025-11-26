@@ -24,6 +24,17 @@ class PlanState(Enum):
     ACTIVE = "active"         # Currently being followed by client
     COMPLETED = "completed"   # Plan period finished
 
+class NotificationType(Enum):
+    """Types of notifications"""
+    PLAN_CREATED = "plan_created"
+    PLAN_UPDATED = "plan_updated"
+    PLAN_APPROVED = "plan_approved"
+    PLAN_ACTIVATED = "plan_activated"
+    PLAN_COMPLETED = "plan_completed"
+    COMMENT_ADDED = "comment_added"
+    TRAINER_ASSIGNED = "trainer_assigned"
+    NUTRITIONIST_ASSIGNED = "nutritionist_assigned"
+
 @dataclass
 class UserProfile:
     age: int
@@ -137,3 +148,43 @@ class NutritionPlan:
     
     # State management
     state: str = "draft"  # draft, under_review, approved, active, completed
+
+@dataclass
+class PlanVersion:
+    """Snapshot of a plan at a specific point in time"""
+    id: str
+    plan_id: str  # ID of the workout or nutrition plan
+    plan_type: str  # "workout" or "nutrition"
+    version_number: int
+    created_by: str  # Who made this change
+    created_at: datetime
+    changes_summary: str  # What was changed
+    data_snapshot: dict  # Complete snapshot of the plan
+    state_at_version: str  # State when this version was created
+
+@dataclass
+class PlanComment:
+    """Comment on a workout or nutrition plan"""
+    id: str
+    plan_id: str
+    plan_type: str  # "workout" or "nutrition"
+    author_id: str
+    author_role: str  # For display (client, trainer, nutritionist)
+    content: str
+    created_at: datetime = field(default_factory=datetime.now)
+    edited_at: Optional[datetime] = None
+    is_internal: bool = False  # Only visible to trainers/nutritionists
+
+@dataclass
+class Notification:
+    """Notification for a user about events"""
+    id: str
+    user_id: str
+    type: str  # Type from NotificationType enum
+    title: str
+    message: str
+    related_entity_type: Optional[str] = None  # "workout_plan", "nutrition_plan"
+    related_entity_id: Optional[str] = None
+    is_read: bool = False
+    created_at: datetime = field(default_factory=datetime.now)
+    read_at: Optional[datetime] = None
