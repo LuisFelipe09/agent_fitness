@@ -1,0 +1,573 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from typing import List, Optional
+from src.infrastructure.database import get_db
+from src.infrastructure.repositories import SqlAlchemyUserRepository, SqlAlchemyWorkoutPlanRepository, SqlAlchemyNutritionPlanRepository
+from src.infrastructure.ai_service import GeminiAIService
+from src.application.services import UserService, PlanningService
+from src.application.role_service import RoleService
+from src.domain.models import UserProfile, Goal, ActivityLevel, User
+from src.domain.permissions import Role, Permission
+from src.interfaces.api.auth import (
+    get_current_user, 
+    get_current_user_id, 
+    is_admin, 
+    is_trainer, 
+    is_nutritionist,
+    require_role,
+    require_permission
+)
+import os
+
+router = APIRouter()
+
+# Dependency Injection Setup
+def get_user_service(db: Session = Depends(get_db)):
+    return UserService(SqlAlchemyUserRepository(db))
+
+def get_planning_service(db: Session = Depends(get_db)):
+    # In a real app, API key should come from env vars
+    api_key = os.getenv("GEMINI_API_KEY", "dummy_key")
+    return PlanningService(
+        GeminiAIService(api_key),
+        SqlAlchemyWorkoutPlanRepository(db),
+        SqlAlchemyNutritionPlanRepository(db),
+        SqlAlchemyUserRepository(db)
+    )
+
+def get_role_service(db: Session = Depends(get_db)):
+    return RoleService(SqlAlchemyUserRepository(db))
+
+# Pydantic Models for Request Body
+class UserProfileCreate(BaseModel):
+    age: int
+    weight: float
+    height: float
+    gender: str
+    goal: str
+    activity_level: str
+    dietary_restrictions: List[str] = []
+    injuries: List[str] = []
+
+class UserCreate(BaseModel):
+    id: str
+    username: str
+
+class RoleAssignment(BaseModel):
+    role: str
+
+class AssignmentRequest(BaseModel):
+    """Request to assign a trainer or nutritionist to a client"""
+    professional_id: str
+
+class ExerciseUpdate(BaseModel):
+    """Model for exercise updates"""
+    name: str
+    description: str
+    sets: int
+    reps: str
+    rest_time: str
+    video_url: Optional[str] = None
+
+class WorkoutSessionUpdate(BaseModel):
+    """Model for workout session updates"""
+    day: str
+    focus: str
+    exercises: List[ExerciseUpdate]
+
+class WorkoutPlanUpdate(BaseModel):
+    """Model for updating a workout plan"""
+    start_date: str  # ISO format
+    end_date: str    # ISO format
+    sessions: List[WorkoutSessionUpdate]
+
+class MealUpdate(BaseModel):
+    """Model for meal updates"""
+    name: str
+    description: str
+    calories: int
+    protein: int
+    carbs: int
+    fats: int
+    ingredients: List[str]
+
+class DailyMealPlanUpdate(BaseModel):
+    """Model for daily meal plan updates"""
+    day: str
+    meals: List[MealUpdate]
+
+class NutritionPlanUpdate(BaseModel):
+    """Model for updating a nutrition plan"""
+    start_date: str  # ISO format
+    end_date: str    # ISO format
+    daily_plans: List[DailyMealPlanUpdate]
+
+
+# ============================================================================
+# PUBLIC ENDPOINTS (No authentication required for initial registration)
+# ============================================================================
+
+@router.post("/users/")
+def create_user(user: UserCreate, service: UserService = Depends(get_user_service)):
+    """Register a new user (called by Telegram bot)"""
+    return service.register_user(user.id, user.username)
+
+
+# ============================================================================
+# USER PROFILE ENDPOINTS
+# ============================================================================
+
+@router.get("/users/me")
+def get_my_profile(current_user: User = Depends(get_current_user)):
+    """Get current user's profile"""
+    return current_user
+
+@router.put("/users/me/profile")
+def update_my_profile(
+    profile: UserProfileCreate, 
+    current_user: User = Depends(get_current_user),
+    service: UserService = Depends(get_user_service)
+):
+    """Update current user's profile"""
+    try:
+        domain_profile = UserProfile(
+            age=profile.age,
+            weight=profile.weight,
+            height=profile.height,
+            gender=profile.gender,
+            goal=Goal(profile.goal),
+            activity_level=ActivityLevel(profile.activity_level),
+            dietary_restrictions=profile.dietary_restrictions,
+            injuries=profile.injuries
+        )
+        return service.update_profile(current_user.id, domain_profile)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/users/me/trainer")
+def get_my_trainer(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get my assigned trainer"""
+    if not current_user.trainer_id:
+        return {"trainer": None, "message": "No trainer assigned"}
+    
+    repo = SqlAlchemyUserRepository(db)
+    trainer = repo.get_by_id(current_user.trainer_id)
+    return {"trainer": trainer}
+
+@router.get("/users/me/nutritionist")
+def get_my_nutritionist(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get my assigned nutritionist"""
+    if not current_user.nutritionist_id:
+        return {"nutritionist": None, "message": "No nutritionist assigned"}
+    
+    repo = SqlAlchemyUserRepository(db)
+    nutritionist = repo.get_by_id(current_user.nutritionist_id)
+    return {"nutritionist": nutritionist}
+
+
+# ============================================================================
+# PLAN GENERATION ENDPOINTS
+# ============================================================================
+
+@router.post("/plans/workout")
+def generate_my_workout(
+    current_user: User = Depends(get_current_user),
+    service: PlanningService = Depends(get_planning_service)
+):
+    """Generate workout plan for current user"""
+    try:
+        return service.generate_workout_plan(current_user.id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/plans/nutrition")
+def generate_my_nutrition(
+    current_user: User = Depends(get_current_user),
+    service: PlanningService = Depends(get_planning_service)
+):
+    """Generate nutrition plan for current user"""
+    try:
+        return service.generate_nutrition_plan(current_user.id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ============================================================================
+# ADMIN ENDPOINTS
+# ============================================================================
+
+@router.get("/admin/users", dependencies=[Depends(require_role(Role.ADMIN))])
+def list_all_users(
+    current_user: User = Depends(get_current_user),
+    service: RoleService = Depends(get_role_service)
+):
+    """List all users in the system (admin only)"""
+    return service.get_all_users(current_user.id)
+
+@router.get("/admin/users/role/{role}", dependencies=[Depends(require_role(Role.ADMIN))])
+def list_users_by_role(
+    role: str,
+    current_user: User = Depends(get_current_user),
+    service: RoleService = Depends(get_role_service)
+):
+    """List all users with a specific role (admin only)"""
+    try:
+        return service.get_users_by_role(current_user.id, role)
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+@router.post("/admin/users/{user_id}/roles", dependencies=[Depends(require_role(Role.ADMIN))])
+def assign_role_to_user(
+    user_id: str,
+    role_data: RoleAssignment,
+    current_user: User = Depends(get_current_user),
+    service: RoleService = Depends(get_role_service)
+):
+    """Assign a role to a user (admin only)"""
+    try:
+        return service.assign_role(current_user.id, user_id, role_data.role)
+    except (PermissionError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.delete("/admin/users/{user_id}/roles/{role}", dependencies=[Depends(require_role(Role.ADMIN))])
+def remove_role_from_user(
+    user_id: str,
+    role: str,
+    current_user: User = Depends(get_current_user),
+    service: RoleService = Depends(get_role_service)
+):
+    """Remove a role from a user (admin only)"""
+    try:
+        return service.remove_role(current_user.id, user_id, role)
+    except (PermissionError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ============================================================================
+# TRAINER ENDPOINTS
+# ============================================================================
+
+@router.get("/trainer/clients", dependencies=[Depends(require_role(Role.TRAINER))])
+def get_my_clients_as_trainer(
+    current_user: User = Depends(get_current_user),
+    service: RoleService = Depends(get_role_service)
+):
+    """Get all clients assigned to me as their trainer"""
+    return service.get_my_clients(current_user.id)
+
+@router.post("/trainer/clients/{client_id}/assign", dependencies=[Depends(require_role(Role.TRAINER))])
+def assign_myself_as_trainer(
+    client_id: str,
+    current_user: User = Depends(get_current_user),
+    service: RoleService = Depends(get_role_service)
+):
+    """Assign myself as trainer to a client"""
+    try:
+        return service.assign_trainer(client_id, current_user.id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/trainer/clients/{client_id}/workout-plan", dependencies=[Depends(require_role(Role.TRAINER))])
+def create_workout_plan_for_client(
+    client_id: str,
+    current_user: User = Depends(get_current_user),
+    service: PlanningService = Depends(get_planning_service),
+    role_service: RoleService = Depends(get_role_service)
+):
+    """Create a workout plan for one of my clients"""
+    # Verify client is assigned to this trainer
+    clients = role_service.get_my_clients(current_user.id)
+    client_ids = [c.id for c in clients]
+    
+    if client_id not in client_ids:
+        raise HTTPException(
+            status_code=403, 
+            detail="You can only create plans for your assigned clients"
+        )
+    
+    try:
+        return service.generate_workout_plan(client_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/trainer/workout-plans/{plan_id}", dependencies=[Depends(require_role(Role.TRAINER))])
+def get_workout_plan(
+    plan_id: str,
+    current_user: User = Depends(get_current_user),
+    role_service: RoleService = Depends(get_role_service),
+    db: Session = Depends(get_db)
+):
+    """Get a specific workout plan to review/edit"""
+    # Get the plan
+    plan_repo = SqlAlchemyWorkoutPlanRepository(db)
+    plan = plan_repo.get_by_id(plan_id)
+    
+    if not plan:
+        raise HTTPException(status_code=404, detail="Workout plan not found")
+    
+    # Verify this trainer is assigned to the client
+    clients = role_service.get_my_clients(current_user.id)
+    client_ids = [c.id for c in clients]
+    
+    if plan.user_id not in client_ids:
+        raise HTTPException(
+            status_code=403,
+            detail="You can only view plans for your assigned clients"
+        )
+    
+    return plan
+
+@router.put("/trainer/workout-plans/{plan_id}", dependencies=[Depends(require_role(Role.TRAINER))])
+def update_workout_plan(
+    plan_id: str,
+    plan_update: WorkoutPlanUpdate,
+    current_user: User = Depends(get_current_user),
+    role_service: RoleService = Depends(get_role_service),
+    db: Session = Depends(get_db)
+):
+    """Update a workout plan (trainer can modify AI-generated plan)"""
+    from datetime import datetime
+    from src.domain.models import WorkoutPlan, WorkoutSession, Exercise
+    
+    # Get the existing plan
+    plan_repo = SqlAlchemyWorkoutPlanRepository(db)
+    existing_plan = plan_repo.get_by_id(plan_id)
+    
+    if not existing_plan:
+        raise HTTPException(status_code=404, detail="Workout plan not found")
+    
+    # Verify this trainer is assigned to the client
+    clients = role_service.get_my_clients(current_user.id)
+    client_ids = [c.id for c in clients]
+    
+    if existing_plan.user_id not in client_ids:
+        raise HTTPException(
+            status_code=403,
+            detail="You can only update plans for your assigned clients"
+        )
+    
+    # Convert Pydantic models to domain models
+    sessions = []
+    for session_data in plan_update.sessions:
+        exercises = [
+            Exercise(
+                name=ex.name,
+                description=ex.description,
+                sets=ex.sets,
+                reps=ex.reps,
+                rest_time=ex.rest_time,
+                video_url=ex.video_url
+            )
+            for ex in session_data.exercises
+        ]
+        sessions.append(WorkoutSession(
+            day=session_data.day,
+            focus=session_data.focus,
+            exercises=exercises
+        ))
+    
+    # Update the plan with traceability
+    updated_plan = WorkoutPlan(
+        id=existing_plan.id,
+        user_id=existing_plan.user_id,
+        start_date=datetime.fromisoformat(plan_update.start_date),
+        end_date=datetime.fromisoformat(plan_update.end_date),
+        sessions=sessions,
+        created_at=existing_plan.created_at,
+        created_by=existing_plan.created_by,  # Keep original creator
+        modified_at=datetime.now(),  # Set modification time
+        modified_by=current_user.id,  # Track who modified
+        state="approved"  # Trainer approved the plan
+    )
+    
+    plan_repo.update(updated_plan)
+    
+    return {"message": "Workout plan updated successfully", "plan": updated_plan}
+
+
+# ============================================================================
+# NUTRITIONIST ENDPOINTS
+# ============================================================================
+
+@router.get("/nutritionist/clients", dependencies=[Depends(require_role(Role.NUTRITIONIST))])
+def get_my_clients_as_nutritionist(
+    current_user: User = Depends(get_current_user),
+    service: RoleService = Depends(get_role_service)
+):
+    """Get all clients assigned to me as their nutritionist"""
+    return service.get_my_clients(current_user.id)
+
+@router.post("/nutritionist/clients/{client_id}/assign", dependencies=[Depends(require_role(Role.NUTRITIONIST))])
+def assign_myself_as_nutritionist(
+    client_id: str,
+    current_user: User = Depends(get_current_user),
+    service: RoleService = Depends(get_role_service)
+):
+    """Assign myself as nutritionist to a client"""
+    try:
+        return service.assign_nutritionist(client_id, current_user.id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/nutritionist/clients/{client_id}/nutrition-plan", dependencies=[Depends(require_role(Role.NUTRITIONIST))])
+def create_nutrition_plan_for_client(
+    client_id: str,
+    current_user: User = Depends(get_current_user),
+    service: PlanningService = Depends(get_planning_service),
+    role_service: RoleService = Depends(get_role_service)
+):
+    """Create a nutrition plan for one of my clients"""
+    # Verify client is assigned to this nutritionist
+    clients = role_service.get_my_clients(current_user.id)
+    client_ids = [c.id for c in clients]
+    
+    if client_id not in client_ids:
+        raise HTTPException(
+            status_code=403,
+            detail="You can only create plans for your assigned clients"
+        )
+    
+    try:
+        return service.generate_nutrition_plan(client_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/nutritionist/nutrition-plans/{plan_id}", dependencies=[Depends(require_role(Role.NUTRITIONIST))])
+def get_nutrition_plan(
+    plan_id: str,
+    current_user: User = Depends(get_current_user),
+    role_service: RoleService = Depends(get_role_service),
+    db: Session = Depends(get_db)
+):
+    """Get a specific nutrition plan to review/edit"""
+    # Get the plan
+    plan_repo = SqlAlchemyNutritionPlanRepository(db)
+    plan = plan_repo.get_by_id(plan_id)
+    
+    if not plan:
+        raise HTTPException(status_code=404, detail="Nutrition plan not found")
+    
+    # Verify this nutritionist is assigned to the client
+    clients = role_service.get_my_clients(current_user.id)
+    client_ids = [c.id for c in clients]
+    
+    if plan.user_id not in client_ids:
+        raise HTTPException(
+            status_code=403,
+            detail="You can only view plans for your assigned clients"
+        )
+    
+    return plan
+
+@router.put("/nutritionist/nutrition-plans/{plan_id}", dependencies=[Depends(require_role(Role.NUTRITIONIST))])
+def update_nutrition_plan(
+    plan_id: str,
+    plan_update: NutritionPlanUpdate,
+    current_user: User = Depends(get_current_user),
+    role_service: RoleService = Depends(get_role_service),
+    db: Session = Depends(get_db)
+):
+    """Update a nutrition plan (nutritionist can modify AI-generated plan)"""
+    from datetime import datetime
+    from src.domain.models import NutritionPlan, DailyMealPlan, Meal
+    
+    # Get the existing plan
+    plan_repo = SqlAlchemyNutritionPlanRepository(db)
+    existing_plan = plan_repo.get_by_id(plan_id)
+    
+    if not existing_plan:
+        raise HTTPException(status_code=404, detail="Nutrition plan not found")
+    
+    # Verify this nutritionist is assigned to the client
+    clients = role_service.get_my_clients(current_user.id)
+    client_ids = [c.id for c in clients]
+    
+    if existing_plan.user_id not in client_ids:
+        raise HTTPException(
+            status_code=403,
+            detail="You can only update plans for your assigned clients"
+        )
+    
+    # Convert Pydantic models to domain models
+    daily_plans = []
+    for daily_data in plan_update.daily_plans:
+        meals = [
+            Meal(
+                name=meal.name,
+                description=meal.description,
+                calories=meal.calories,
+                protein=meal.protein,
+                carbs=meal.carbs,
+                fats=meal.fats,
+                ingredients=meal.ingredients
+            )
+            for meal in daily_data.meals
+        ]
+        daily_plans.append(DailyMealPlan(
+            day=daily_data.day,
+            meals=meals
+        ))
+    
+    # Update the plan with traceability
+    updated_plan = NutritionPlan(
+        id=existing_plan.id,
+        user_id=existing_plan.user_id,
+        start_date=datetime.fromisoformat(plan_update.start_date),
+        end_date=datetime.fromisoformat(plan_update.end_date),
+        daily_plans=daily_plans,
+        created_at=existing_plan.created_at,
+        created_by=existing_plan.created_by,  # Keep original creator
+        modified_at=datetime.now(),  # Set modification time
+        modified_by=current_user.id,  # Track who modified
+        state="approved"  # Nutritionist approved the plan
+    )
+    
+    plan_repo.update(updated_plan)
+    
+    return {"message": "Nutrition plan updated successfully", "plan": updated_plan}
+
+
+# ============================================================================
+# LEGACY ENDPOINTS (Deprecated - kept for backward compatibility)
+# ============================================================================
+
+@router.put("/users/{user_id}/profile")
+def update_profile(user_id: str, profile: UserProfileCreate, service: UserService = Depends(get_user_service)):
+    """DEPRECATED: Use /users/me/profile instead"""
+    try:
+        domain_profile = UserProfile(
+            age=profile.age,
+            weight=profile.weight,
+            height=profile.height,
+            gender=profile.gender,
+            goal=Goal(profile.goal),
+            activity_level=ActivityLevel(profile.activity_level),
+            dietary_restrictions=profile.dietary_restrictions,
+            injuries=profile.injuries
+        )
+        return service.update_profile(user_id, domain_profile)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/users/{user_id}/plans/workout")
+def generate_workout(user_id: str, service: PlanningService = Depends(get_planning_service)):
+    """DEPRECATED: Use /plans/workout instead"""
+    try:
+        return service.generate_workout_plan(user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/users/{user_id}/plans/nutrition")
+def generate_nutrition(user_id: str, service: PlanningService = Depends(get_planning_service)):
+    """DEPRECATED: Use /plans/nutrition instead"""
+    try:
+        return service.generate_nutrition_plan(user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

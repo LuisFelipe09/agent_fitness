@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+sqlalchemy
+pydantic
+python-telegram-bot
+google-generativeai
+python-dotenv
+pytest
+httpx
