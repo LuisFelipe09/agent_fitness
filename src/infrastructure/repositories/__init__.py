@@ -1,0 +1,6 @@
+from .user_repository import SqlAlchemyUserRepository
+from .workout_repository import SqlAlchemyWorkoutPlanRepository
+from .nutrition_repository import SqlAlchemyNutritionPlanRepository
+from .version_repository import SqlAlchemyPlanVersionRepository
+from .comment_repository import SqlAlchemyPlanCommentRepository
+from .notification_repository import SqlAlchemyNotificationRepository

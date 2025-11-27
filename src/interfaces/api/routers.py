@@ -3,13 +3,24 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List, Optional
 from src.infrastructure.database import get_db
-from src.infrastructure.ai_service import GeminiAIService
-from src.infrastructure.repositories import (
-    SqlAlchemyUserRepository, 
-    SqlAlchemyWorkoutPlanRepository, 
-    SqlAlchemyNutritionPlanRepository,
-    SqlAlchemyPlanVersionRepository,
-    SqlAlchemyNotificationRepository
+from src.domain.repositories import (
+    UserRepository, 
+    WorkoutPlanRepository, 
+    NutritionPlanRepository,
+    PlanVersionRepository,
+    NotificationRepository
+)
+from src.dependencies import (
+    get_user_service,
+    get_planning_service,
+    get_role_service,
+    get_user_repository,
+    get_workout_repository,
+    get_nutrition_repository,
+    get_version_repository,
+    get_notification_repository,
+    get_version_service,
+    get_notification_service
 )
 from src.application.services import UserService, PlanningService
 from src.application.role_service import RoleService
@@ -29,23 +40,6 @@ from src.interfaces.api.auth import (
 import os
 
 router = APIRouter()
-
-# Dependency Injection Setup
-def get_user_service(db: Session = Depends(get_db)):
-    return UserService(SqlAlchemyUserRepository(db))
-
-def get_planning_service(db: Session = Depends(get_db)):
-    # In a real app, API key should come from env vars
-    api_key = os.getenv("GEMINI_API_KEY", "dummy_key")
-    return PlanningService(
-        GeminiAIService(api_key),
-        SqlAlchemyWorkoutPlanRepository(db),
-        SqlAlchemyNutritionPlanRepository(db),
-        SqlAlchemyUserRepository(db)
-    )
-
-def get_role_service(db: Session = Depends(get_db)):
-    return RoleService(SqlAlchemyUserRepository(db))
 
 # Pydantic Models for Request Body
 class UserProfileCreate(BaseModel):
@@ -156,27 +150,25 @@ def update_my_profile(
 @router.get("/users/me/trainer")
 def get_my_trainer(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    user_repo: UserRepository = Depends(get_user_repository)
 ):
     """Get my assigned trainer"""
     if not current_user.trainer_id:
         return {"trainer": None, "message": "No trainer assigned"}
     
-    repo = SqlAlchemyUserRepository(db)
-    trainer = repo.get_by_id(current_user.trainer_id)
+    trainer = user_repo.get_by_id(current_user.trainer_id)
     return {"trainer": trainer}
 
 @router.get("/users/me/nutritionist")
 def get_my_nutritionist(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    user_repo: UserRepository = Depends(get_user_repository)
 ):
     """Get my assigned nutritionist"""
     if not current_user.nutritionist_id:
         return {"nutritionist": None, "message": "No nutritionist assigned"}
     
-    repo = SqlAlchemyUserRepository(db)
-    nutritionist = repo.get_by_id(current_user.nutritionist_id)
+    nutritionist = user_repo.get_by_id(current_user.nutritionist_id)
     return {"nutritionist": nutritionist}
 
 
@@ -310,11 +302,10 @@ def get_workout_plan(
     plan_id: str,
     current_user: User = Depends(get_current_user),
     role_service: RoleService = Depends(get_role_service),
-    db: Session = Depends(get_db)
+    plan_repo: WorkoutPlanRepository = Depends(get_workout_repository)
 ):
     """Get a specific workout plan to review/edit"""
     # Get the latest plan
-    plan_repo = SqlAlchemyWorkoutPlanRepository(db)
     plan = plan_repo.get_current_plan(current_user.id)
     
     if not plan:
@@ -338,14 +329,15 @@ def update_workout_plan(
     plan_update: WorkoutPlanUpdate,
     current_user: User = Depends(get_current_user),
     role_service: RoleService = Depends(get_role_service),
-    db: Session = Depends(get_db)
+    plan_repo: WorkoutPlanRepository = Depends(get_workout_repository),
+    version_service: VersionService = Depends(get_version_service),
+    notif_service: NotificationService = Depends(get_notification_service)
 ):
     """Update a workout plan (trainer can modify AI-generated plan)"""
     from datetime import datetime
     from src.domain.models import WorkoutPlan, WorkoutSession, Exercise
     
     # Get the existing plan
-    plan_repo = SqlAlchemyWorkoutPlanRepository(db)
     existing_plan = plan_repo.get_by_id(plan_id)
     
     if not existing_plan:
@@ -381,12 +373,6 @@ def update_workout_plan(
             exercises=exercises
         ))
     
-    # Create a version snapshot of the OLD plan before updating
-    # We need to inject VersionService here. 
-    # Since we can't easily change the function signature without updating imports,
-    # we'll instantiate it here or add it to dependencies.
-    # Ideally, we should add it to dependencies.
-    
     # Update the plan with traceability
     updated_plan = WorkoutPlan(
         id=existing_plan.id,
@@ -402,8 +388,6 @@ def update_workout_plan(
     )
     
     # Create version
-    version_repo = SqlAlchemyPlanVersionRepository(db)
-    version_service = VersionService(version_repo)
     version_service.create_version(
         plan=existing_plan, # Snapshot the OLD state
         changed_by=current_user.id,
@@ -413,8 +397,6 @@ def update_workout_plan(
     plan_repo.update(updated_plan)
     
     # Notify client
-    notif_repo = SqlAlchemyNotificationRepository(db)
-    notif_service = NotificationService(notif_repo)
     notif_service.create_notification(
         user_id=existing_plan.user_id,
         type=NotificationType.PLAN_UPDATED,
@@ -479,11 +461,10 @@ def get_nutrition_plan(
     plan_id: str,
     current_user: User = Depends(get_current_user),
     role_service: RoleService = Depends(get_role_service),
-    db: Session = Depends(get_db)
+    plan_repo: NutritionPlanRepository = Depends(get_nutrition_repository)
 ):
     """Get a specific nutrition plan to review/edit"""
     # Get the plan
-    plan_repo = SqlAlchemyNutritionPlanRepository(db)
     plan = plan_repo.get_by_id(plan_id)
     
     if not plan:
@@ -507,14 +488,15 @@ def update_nutrition_plan(
     plan_update: NutritionPlanUpdate,
     current_user: User = Depends(get_current_user),
     role_service: RoleService = Depends(get_role_service),
-    db: Session = Depends(get_db)
+    plan_repo: NutritionPlanRepository = Depends(get_nutrition_repository),
+    version_service: VersionService = Depends(get_version_service),
+    notif_service: NotificationService = Depends(get_notification_service)
 ):
     """Update a nutrition plan (nutritionist can modify AI-generated plan)"""
     from datetime import datetime
     from src.domain.models import NutritionPlan, DailyMealPlan, Meal
     
     # Get the existing plan
-    plan_repo = SqlAlchemyNutritionPlanRepository(db)
     existing_plan = plan_repo.get_by_id(plan_id)
     
     if not existing_plan:
@@ -551,8 +533,6 @@ def update_nutrition_plan(
         ))
     
     # Create version
-    version_repo = SqlAlchemyPlanVersionRepository(db)
-    version_service = VersionService(version_repo)
     version_service.create_version(
         plan=existing_plan, # Snapshot the OLD state
         changed_by=current_user.id,
@@ -576,8 +556,6 @@ def update_nutrition_plan(
     plan_repo.update(updated_plan)
     
     # Notify client
-    notif_repo = SqlAlchemyNotificationRepository(db)
-    notif_service = NotificationService(notif_repo)
     notif_service.create_notification(
         user_id=existing_plan.user_id,
         type=NotificationType.PLAN_UPDATED,
@@ -616,7 +594,7 @@ def update_profile(user_id: str, profile: UserProfileCreate, service: UserServic
 def get_current_workout_plan(
     user_id: str,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    plan_repo: WorkoutPlanRepository = Depends(get_workout_repository)
 ):
     """Get the current workout plan for a user"""
     # Authorization: User can see their own plan, or their trainer can see it
@@ -627,7 +605,6 @@ def get_current_workout_plan(
         if not (current_user.has_role("trainer") or current_user.has_role("admin")):
              raise HTTPException(status_code=403, detail="Not authorized to view this plan")
 
-    plan_repo = SqlAlchemyWorkoutPlanRepository(db)
     plan = plan_repo.get_current_plan(user_id)
     
     if not plan:
@@ -663,14 +640,13 @@ def generate_workout(user_id: str, service: PlanningService = Depends(get_planni
 def get_current_nutrition_plan(
     user_id: str,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    plan_repo: NutritionPlanRepository = Depends(get_nutrition_repository)
 ):
     """Get the current nutrition plan for a user"""
     if current_user.id != user_id:
         if not (current_user.has_role("nutritionist") or current_user.has_role("admin")):
              raise HTTPException(status_code=403, detail="Not authorized to view this plan")
 
-    plan_repo = SqlAlchemyNutritionPlanRepository(db)
     plan = plan_repo.get_current_plan(user_id)
     
     if not plan:

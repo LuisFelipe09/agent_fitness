@@ -5,30 +5,24 @@ from src.domain.models import User, PlanVersion, PlanComment, Notification, Noti
 from src.application.version_service import VersionService
 from src.application.comment_service import CommentService
 from src.application.notification_service import NotificationService
-from src.infrastructure.repositories import (
-    SqlAlchemyPlanVersionRepository, 
-    SqlAlchemyPlanCommentRepository, 
-    SqlAlchemyNotificationRepository,
-    SqlAlchemyWorkoutPlanRepository,
-    SqlAlchemyNutritionPlanRepository,
-    SqlAlchemyUserRepository
+from src.domain.repositories import (
+    WorkoutPlanRepository,
+    NutritionPlanRepository,
+    UserRepository
+)
+from src.dependencies import (
+    get_version_service,
+    get_comment_service,
+    get_notification_service,
+    get_workout_repository,
+    get_nutrition_repository,
+    get_user_repository
 )
 from src.interfaces.api.auth import get_current_user, require_role
 from src.domain.permissions import Role
-from src.infrastructure.database import get_db
 from pydantic import BaseModel
 
 router = APIRouter()
-
-# Dependency helpers
-def get_version_service(db: Session = Depends(get_db)) -> VersionService:
-    return VersionService(SqlAlchemyPlanVersionRepository(db))
-
-def get_comment_service(db: Session = Depends(get_db)) -> CommentService:
-    return CommentService(SqlAlchemyPlanCommentRepository(db))
-
-def get_notification_service(db: Session = Depends(get_db)) -> NotificationService:
-    return NotificationService(SqlAlchemyNotificationRepository(db))
 
 # Pydantic models
 class CommentCreate(BaseModel):
@@ -59,13 +53,12 @@ def get_plan_versions(
     plan_id: str,
     current_user: User = Depends(get_current_user),
     service: VersionService = Depends(get_version_service),
-    db: Session = Depends(get_db)
+    workout_repo: WorkoutPlanRepository = Depends(get_workout_repository),
+    nutrition_repo: NutritionPlanRepository = Depends(get_nutrition_repository),
+    user_repo: UserRepository = Depends(get_user_repository)
 ):
     """Get version history for a plan"""
     # 1. Find the plan to check ownership
-    workout_repo = SqlAlchemyWorkoutPlanRepository(db)
-    nutrition_repo = SqlAlchemyNutritionPlanRepository(db)
-    
     plan = workout_repo.get_by_id(plan_id)
     if not plan:
         plan = nutrition_repo.get_by_id(plan_id)
@@ -78,7 +71,6 @@ def get_plan_versions(
     # 2. Check permissions
     if plan.user_id != current_user.id:
         # Not the owner. Check if authorized professional.
-        user_repo = SqlAlchemyUserRepository(db)
         plan_owner = user_repo.get_by_id(plan.user_id)
         
         if not plan_owner:

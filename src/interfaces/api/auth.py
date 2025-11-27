@@ -3,11 +3,10 @@
 from fastapi import HTTPException, Depends, Header
 from sqlalchemy.orm import Session
 from typing import Optional
-from src.infrastructure.database import get_db
-from src.infrastructure.repositories import SqlAlchemyUserRepository
-from src.domain.permissions import Role, Permission
+from src.domain.repositories import UserRepository
+from src.dependencies import get_user_repository
 from src.domain.models import User
-
+from src.domain.permissions import Role, Permission
 
 def get_current_user_id(x_user_id: Optional[str] = Header(None)) -> str:
     """Extract user ID from request header
@@ -34,13 +33,13 @@ def get_current_user_id(x_user_id: Optional[str] = Header(None)) -> str:
 
 def get_current_user(
     user_id: str = Depends(get_current_user_id),
-    db: Session = Depends(get_db)
+    user_repo: UserRepository = Depends(get_user_repository)
 ) -> User:
     """Get the current authenticated user
     
     Args:
         user_id: User ID from header
-        db: Database session
+        user_repo: User repository
         
     Returns:
         User object
@@ -48,8 +47,7 @@ def get_current_user(
     Raises:
         HTTPException: If user not found
     """
-    repo = SqlAlchemyUserRepository(db)
-    user = repo.get_by_id(user_id)
+    user = user_repo.get_by_id(user_id)
     
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
