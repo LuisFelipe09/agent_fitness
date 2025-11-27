@@ -1,15 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from pydantic import BaseModel
-from typing import List, Optional
-from src.infrastructure.database import get_db
-from src.domain.repositories import (
-    UserRepository, 
-    WorkoutPlanRepository, 
-    NutritionPlanRepository,
-    PlanVersionRepository,
-    NotificationRepository
-)
+from typing import Optional
 from src.dependencies import (
     get_user_service,
     get_planning_service,
@@ -17,8 +7,6 @@ from src.dependencies import (
     get_user_repository,
     get_workout_repository,
     get_nutrition_repository,
-    get_version_repository,
-    get_notification_repository,
     get_version_service,
     get_notification_service
 )
@@ -26,84 +14,30 @@ from src.application.services import UserService, PlanningService
 from src.application.role_service import RoleService
 from src.application.version_service import VersionService
 from src.application.notification_service import NotificationService
-from src.domain.models import UserProfile, Goal, ActivityLevel, User, WorkoutPlan, NutritionPlan, WorkoutSession, Exercise, DailyMealPlan, Meal, NotificationType
-from src.domain.permissions import Role, Permission
-from src.interfaces.api.auth import (
-    get_current_user, 
-    get_current_user_id, 
-    is_admin, 
-    is_trainer, 
-    is_nutritionist,
-    require_role,
-    require_permission
+from src.domain.repositories import (
+    UserRepository,
+    WorkoutPlanRepository,
+    NutritionPlanRepository
 )
-import os
+from src.domain.models import (
+    UserProfile, Goal, ActivityLevel, User,
+    NotificationType
+)
+from src.domain.permissions import Role
+from src.interfaces.api.auth import (
+    get_current_user,
+    require_role
+)
+from src.interfaces.api.dto import (
+    UserProfileRequest,
+    UserCreateRequest,
+    RoleAssignmentRequest,
+    ProfessionalAssignmentRequest,
+    WorkoutPlanUpdateRequest,
+    NutritionPlanUpdateRequest
+)
 
 router = APIRouter()
-
-# Pydantic Models for Request Body
-class UserProfileCreate(BaseModel):
-    age: int
-    weight: float
-    height: float
-    gender: str
-    goal: str
-    activity_level: str
-    dietary_restrictions: List[str] = []
-    injuries: List[str] = []
-
-class UserCreate(BaseModel):
-    id: str
-    username: str
-
-class RoleAssignment(BaseModel):
-    role: str
-
-class AssignmentRequest(BaseModel):
-    """Request to assign a trainer or nutritionist to a client"""
-    professional_id: str
-
-class ExerciseUpdate(BaseModel):
-    """Model for exercise updates"""
-    name: str
-    description: str
-    sets: int
-    reps: str
-    rest_time: str
-    video_url: Optional[str] = None
-
-class WorkoutSessionUpdate(BaseModel):
-    """Model for workout session updates"""
-    day: str
-    focus: str
-    exercises: List[ExerciseUpdate]
-
-class WorkoutPlanUpdate(BaseModel):
-    """Model for updating a workout plan"""
-    start_date: str  # ISO format
-    end_date: str    # ISO format
-    sessions: List[WorkoutSessionUpdate]
-
-class MealUpdate(BaseModel):
-    """Model for meal updates"""
-    name: str
-    description: str
-    calories: int
-    protein: int
-    carbs: int
-    fats: int
-    ingredients: List[str]
-
-class DailyMealPlanUpdate(BaseModel):
-    """Model for daily meal plan updates"""
-    day: str
-    meals: List[MealUpdate]
-
-class NutritionPlanUpdate(BaseModel):
-    """Model for updating a nutrition plan"""
-    start_date: str  # ISO format
-    end_date: str    # ISO format
-    daily_plans: List[DailyMealPlanUpdate]
 
 
 # ============================================================================
@@ -111,7 +45,7 @@ class NutritionPlanUpdate(BaseModel):
 # ============================================================================
 
 @router.post("/users/")
-def create_user(user: UserCreate, service: UserService = Depends(get_user_service)):
+def create_user(user: UserCreateRequest, service: UserService = Depends(get_user_service)):
     """Register a new user (called by Telegram bot)"""
     return service.register_user(user.id, user.username)
 
@@ -127,7 +61,7 @@ def get_my_profile(current_user: User = Depends(get_current_user)):
 
 @router.put("/users/me/profile")
 def update_my_profile(
-    profile: UserProfileCreate, 
+    profile: UserProfileRequest, 
     current_user: User = Depends(get_current_user),
     service: UserService = Depends(get_user_service)
 ):
@@ -226,7 +160,7 @@ def list_users_by_role(
 @router.post("/admin/users/{user_id}/roles", dependencies=[Depends(require_role(Role.ADMIN))])
 def assign_role_to_user(
     user_id: str,
-    role_data: RoleAssignment,
+    role_data: RoleAssignmentRequest,
     current_user: User = Depends(get_current_user),
     service: RoleService = Depends(get_role_service)
 ):
@@ -326,16 +260,17 @@ def get_workout_plan(
 @router.put("/trainer/workout-plans/{plan_id}", dependencies=[Depends(require_role(Role.TRAINER))])
 def update_workout_plan(
     plan_id: str,
-    plan_update: WorkoutPlanUpdate,
+    plan_update: WorkoutPlanUpdateRequest,
     current_user: User = Depends(get_current_user),
     role_service: RoleService = Depends(get_role_service),
-    plan_repo: WorkoutPlanRepository = Depends(get_workout_repository),
+    planning_service: PlanningService = Depends(get_planning_service),
     version_service: VersionService = Depends(get_version_service),
-    notif_service: NotificationService = Depends(get_notification_service)
+    notif_service: NotificationService = Depends(get_notification_service),
+    plan_repo: WorkoutPlanRepository = Depends(get_workout_repository)
 ):
     """Update a workout plan (trainer can modify AI-generated plan)"""
     from datetime import datetime
-    from src.domain.models import WorkoutPlan, WorkoutSession, Exercise
+    from src.domain.models import WorkoutSession, Exercise
     
     # Get the existing plan
     existing_plan = plan_repo.get_by_id(plan_id)
@@ -353,7 +288,7 @@ def update_workout_plan(
             detail="You can only update plans for your assigned clients"
         )
     
-    # Convert Pydantic models to domain models
+    # Convert Pydantic DTOs to domain models
     sessions = []
     for session_data in plan_update.sessions:
         exercises = [
@@ -373,28 +308,21 @@ def update_workout_plan(
             exercises=exercises
         ))
     
-    # Update the plan with traceability
-    updated_plan = WorkoutPlan(
-        id=existing_plan.id,
-        user_id=existing_plan.user_id,
-        start_date=datetime.fromisoformat(plan_update.start_date),
-        end_date=datetime.fromisoformat(plan_update.end_date),
-        sessions=sessions,
-        created_at=existing_plan.created_at,
-        created_by=existing_plan.created_by,  # Keep original creator
-        modified_at=datetime.now(),  # Set modification time
-        modified_by=current_user.id,  # Track who modified
-        state="approved"  # Trainer approved the plan
-    )
-    
-    # Create version
+    # Create version snapshot before update
     version_service.create_version(
-        plan=existing_plan, # Snapshot the OLD state
+        plan=existing_plan,
         changed_by=current_user.id,
         summary="Trainer update: Modified sessions/exercises"
     )
     
-    plan_repo.update(updated_plan)
+    # Delegate to service for update
+    updated_plan = planning_service.update_workout_plan(
+        plan_id=plan_id,
+        start_date=datetime.fromisoformat(plan_update.start_date),
+        end_date=datetime.fromisoformat(plan_update.end_date),
+        sessions=sessions,
+        modified_by=current_user.id
+    )
     
     # Notify client
     notif_service.create_notification(
@@ -485,16 +413,17 @@ def get_nutrition_plan(
 @router.put("/nutritionist/nutrition-plans/{plan_id}", dependencies=[Depends(require_role(Role.NUTRITIONIST))])
 def update_nutrition_plan(
     plan_id: str,
-    plan_update: NutritionPlanUpdate,
+    plan_update: NutritionPlanUpdateRequest,
     current_user: User = Depends(get_current_user),
     role_service: RoleService = Depends(get_role_service),
-    plan_repo: NutritionPlanRepository = Depends(get_nutrition_repository),
+    planning_service: PlanningService = Depends(get_planning_service),
     version_service: VersionService = Depends(get_version_service),
-    notif_service: NotificationService = Depends(get_notification_service)
+    notif_service: NotificationService = Depends(get_notification_service),
+    plan_repo: NutritionPlanRepository = Depends(get_nutrition_repository)
 ):
     """Update a nutrition plan (nutritionist can modify AI-generated plan)"""
     from datetime import datetime
-    from src.domain.models import NutritionPlan, DailyMealPlan, Meal
+    from src.domain.models import DailyMealPlan, Meal
     
     # Get the existing plan
     existing_plan = plan_repo.get_by_id(plan_id)
@@ -512,7 +441,7 @@ def update_nutrition_plan(
             detail="You can only update plans for your assigned clients"
         )
     
-    # Convert Pydantic models to domain models
+    # Convert Pydantic DTOs to domain models
     daily_plans = []
     for daily_data in plan_update.daily_plans:
         meals = [
@@ -532,28 +461,21 @@ def update_nutrition_plan(
             meals=meals
         ))
     
-    # Create version
+    # Create version snapshot before update
     version_service.create_version(
-        plan=existing_plan, # Snapshot the OLD state
+        plan=existing_plan,
         changed_by=current_user.id,
         summary="Nutritionist update: Modified meals"
     )
 
-    # Update the plan with traceability
-    updated_plan = NutritionPlan(
-        id=existing_plan.id,
-        user_id=existing_plan.user_id,
+    # Delegate to service for update
+    updated_plan = planning_service.update_nutrition_plan(
+        plan_id=plan_id,
         start_date=datetime.fromisoformat(plan_update.start_date),
         end_date=datetime.fromisoformat(plan_update.end_date),
         daily_plans=daily_plans,
-        created_at=existing_plan.created_at,
-        created_by=existing_plan.created_by,  # Keep original creator
-        modified_at=datetime.now(),  # Set modification time
-        modified_by=current_user.id,  # Track who modified
-        state="approved"  # Nutritionist approved the plan
+        modified_by=current_user.id
     )
-    
-    plan_repo.update(updated_plan)
     
     # Notify client
     notif_service.create_notification(
@@ -573,7 +495,7 @@ def update_nutrition_plan(
 # ============================================================================
 
 @router.put("/users/{user_id}/profile")
-def update_profile(user_id: str, profile: UserProfileCreate, service: UserService = Depends(get_user_service)):
+def update_profile(user_id: str, profile: UserProfileRequest, service: UserService = Depends(get_user_service)):
     """DEPRECATED: Use /users/me/profile instead"""
     try:
         domain_profile = UserProfile(
