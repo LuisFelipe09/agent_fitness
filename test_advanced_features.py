@@ -198,5 +198,19 @@ def test_flow():
     else:
         print(f"❌ Failed to activate plan: {res.text}")
 
+    # 8. Security Check: Unauthorized Access to History
+    print("\n8. Security Check: Unauthorized Access...")
+    STRANGER_ID = "stranger_user"
+    # Create stranger user if not exists
+    stranger = User(id=STRANGER_ID, username="Stranger", roles=["client"])
+    if not user_repo.get_by_id(STRANGER_ID):
+        user_repo.save(stranger)
+        
+    res = requests.get(f"{BASE_URL}/plans/{plan_id}/versions", headers={"X-User-Id": STRANGER_ID})
+    if res.status_code == 403:
+        print("✅ Security check passed: Unauthorized user blocked (403)")
+    else:
+        print(f"❌ Security check FAILED: Expected 403, got {res.status_code}")
+
 if __name__ == "__main__":
     test_flow()

@@ -8,7 +8,10 @@ from src.application.notification_service import NotificationService
 from src.infrastructure.repositories import (
     SqlAlchemyPlanVersionRepository, 
     SqlAlchemyPlanCommentRepository, 
-    SqlAlchemyNotificationRepository
+    SqlAlchemyNotificationRepository,
+    SqlAlchemyWorkoutPlanRepository,
+    SqlAlchemyNutritionPlanRepository,
+    SqlAlchemyUserRepository
 )
 from src.interfaces.api.auth import get_current_user, require_role
 from src.domain.permissions import Role
@@ -55,10 +58,51 @@ class NotificationResponse(BaseModel):
 def get_plan_versions(
     plan_id: str,
     current_user: User = Depends(get_current_user),
-    service: VersionService = Depends(get_version_service)
+    service: VersionService = Depends(get_version_service),
+    db: Session = Depends(get_db)
 ):
     """Get version history for a plan"""
-    # TODO: Add permission check (user owns plan or is assigned trainer)
+    # 1. Find the plan to check ownership
+    workout_repo = SqlAlchemyWorkoutPlanRepository(db)
+    nutrition_repo = SqlAlchemyNutritionPlanRepository(db)
+    
+    plan = workout_repo.get_by_id(plan_id)
+    if not plan:
+        plan = nutrition_repo.get_by_id(plan_id)
+        
+    if not plan:
+        # If plan doesn't exist, maybe it was deleted but versions remain?
+        # For security, we shouldn't show versions if we can't verify ownership.
+        raise HTTPException(status_code=404, detail="Plan not found")
+
+    # 2. Check permissions
+    if plan.user_id != current_user.id:
+        # Not the owner. Check if authorized professional.
+        user_repo = SqlAlchemyUserRepository(db)
+        plan_owner = user_repo.get_by_id(plan.user_id)
+        
+        if not plan_owner:
+             raise HTTPException(status_code=404, detail="Plan owner not found")
+
+        is_authorized = False
+        
+        # Admin always has access
+        if current_user.has_role("admin"):
+            is_authorized = True
+            
+        # Trainer check
+        elif current_user.has_role("trainer"):
+            if plan_owner.trainer_id == current_user.id:
+                is_authorized = True
+                
+        # Nutritionist check
+        elif current_user.has_role("nutritionist"):
+            if plan_owner.nutritionist_id == current_user.id:
+                is_authorized = True
+        
+        if not is_authorized:
+            raise HTTPException(status_code=403, detail="Not authorized to view this plan's history")
+
     versions = service.get_history(plan_id)
     return versions
 

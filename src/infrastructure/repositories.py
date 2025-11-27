@@ -119,28 +119,43 @@ class SqlAlchemyWorkoutPlanRepository(WorkoutPlanRepository):
     def __init__(self, db: Session):
         self.db = db
 
+    def _deserialize_sessions(self, sessions_data: List[dict]) -> List[WorkoutSession]:
+        if not sessions_data:
+            return []
+        
+        sessions = []
+        for s_data in sessions_data:
+            exercises = []
+            if 'exercises' in s_data:
+                for e_data in s_data['exercises']:
+                    exercises.append(Exercise(
+                        name=e_data.get('name', ''),
+                        description=e_data.get('description', ''),
+                        sets=e_data.get('sets', 0),
+                        reps=e_data.get('reps', ''),
+                        rest_time=e_data.get('rest_time', ''),
+                        video_url=e_data.get('video_url')
+                    ))
+            
+            sessions.append(WorkoutSession(
+                day=s_data.get('day', ''),
+                focus=s_data.get('focus', ''),
+                exercises=exercises
+            ))
+        return sessions
+
     def get_current_plan(self, user_id: str) -> Optional[WorkoutPlan]:
         # Get the latest plan
         plan_orm = self.db.query(WorkoutPlanORM).filter(WorkoutPlanORM.user_id == user_id).order_by(WorkoutPlanORM.created_at.desc()).first()
         if not plan_orm:
             return None
         
-        # Deserialize JSON to objects (simplified for MVP)
-        # In a real app, you'd recursively reconstruct the objects
-        # For now, we assume the JSON structure matches the dataclasses roughly or we'd need a proper mapper
-        # This part requires careful mapping. Let's assume we store it as a dict that matches.
-        # However, we need to return domain objects.
-        
-        # TODO: Implement proper JSON to Object mapping
-        # For this MVP, we will return a basic object or mock it if data is complex
-        # But let's try to do a basic reconstruction
-        
         return WorkoutPlan(
             id=plan_orm.id,
             user_id=plan_orm.user_id,
             start_date=plan_orm.start_date,
             end_date=plan_orm.end_date,
-            sessions=[], # Placeholder: needs proper deserialization logic
+            sessions=self._deserialize_sessions(plan_orm.sessions_data),
             created_at=plan_orm.created_at,
             created_by=plan_orm.created_by,
             modified_at=plan_orm.modified_at,
@@ -178,7 +193,7 @@ class SqlAlchemyWorkoutPlanRepository(WorkoutPlanRepository):
             user_id=plan_orm.user_id,
             start_date=plan_orm.start_date,
             end_date=plan_orm.end_date,
-            sessions=[],  # Placeholder: needs proper deserialization logic
+            sessions=self._deserialize_sessions(plan_orm.sessions_data),
             created_at=plan_orm.created_at,
             created_by=plan_orm.created_by,
             modified_at=plan_orm.modified_at,
@@ -205,6 +220,31 @@ class SqlAlchemyNutritionPlanRepository(NutritionPlanRepository):
     def __init__(self, db: Session):
         self.db = db
 
+    def _deserialize_daily_plans(self, daily_plans_data: List[dict]) -> List[DailyMealPlan]:
+        if not daily_plans_data:
+            return []
+        
+        daily_plans = []
+        for d_data in daily_plans_data:
+            meals = []
+            if 'meals' in d_data:
+                for m_data in d_data['meals']:
+                    meals.append(Meal(
+                        name=m_data.get('name', ''),
+                        description=m_data.get('description', ''),
+                        calories=m_data.get('calories', 0),
+                        protein=m_data.get('protein', 0),
+                        carbs=m_data.get('carbs', 0),
+                        fats=m_data.get('fats', 0),
+                        ingredients=m_data.get('ingredients', [])
+                    ))
+            
+            daily_plans.append(DailyMealPlan(
+                day=d_data.get('day', ''),
+                meals=meals
+            ))
+        return daily_plans
+
     def get_current_plan(self, user_id: str) -> Optional[NutritionPlan]:
         plan_orm = self.db.query(NutritionPlanORM).filter(NutritionPlanORM.user_id == user_id).order_by(NutritionPlanORM.created_at.desc()).first()
         if not plan_orm:
@@ -215,7 +255,7 @@ class SqlAlchemyNutritionPlanRepository(NutritionPlanRepository):
             user_id=plan_orm.user_id,
             start_date=plan_orm.start_date,
             end_date=plan_orm.end_date,
-            daily_plans=[],  # Placeholder
+            daily_plans=self._deserialize_daily_plans(plan_orm.daily_plans_data),
             created_at=plan_orm.created_at,
             created_by=plan_orm.created_by,
             modified_at=plan_orm.modified_at,
@@ -252,7 +292,7 @@ class SqlAlchemyNutritionPlanRepository(NutritionPlanRepository):
             user_id=plan_orm.user_id,
             start_date=plan_orm.start_date,
             end_date=plan_orm.end_date,
-            daily_plans=[],  # Placeholder
+            daily_plans=self._deserialize_daily_plans(plan_orm.daily_plans_data),
             created_at=plan_orm.created_at,
             created_by=plan_orm.created_by,
             modified_at=plan_orm.modified_at,
