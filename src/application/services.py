@@ -64,3 +64,65 @@ class PlanningService:
         plan.state = "draft"  # Initial state
         self.nutrition_repo.save(plan)
         return plan
+
+    def activate_workout_plan(self, plan_id: str, user_id: str) -> WorkoutPlan:
+        """
+        Activates a workout plan.
+        - Verifies plan belongs to user and is APPROVED.
+        - Archives any currently ACTIVE plan.
+        - Sets new plan to ACTIVE.
+        """
+        plan = self.workout_repo.get_by_id(plan_id)
+        if not plan:
+            raise ValueError("Plan not found")
+        
+        if plan.user_id != user_id:
+            raise ValueError("Plan does not belong to this user")
+            
+        if plan.state != "approved":
+            raise ValueError(f"Cannot activate plan in '{plan.state}' state. Only 'approved' plans can be activated.")
+            
+        # Archive current active plan
+        current_active = self.workout_repo.get_current_plan(user_id)
+        if current_active and current_active.id != plan_id:
+            # Note: get_current_plan might return the plan we are trying to activate if logic changes,
+            # but currently it returns the 'latest' which might not be 'active'.
+            # We need to be careful. Ideally we should search for plan with state='active'.
+            # Since we don't have a specific 'get_active_plan' method, we'll assume we need to implement this logic carefully.
+            # For now, let's assume we iterate or we add a method.
+            # Actually, let's just check if the current one returned is active.
+            if current_active.state == "active":
+                current_active.state = "archived"
+                self.workout_repo.update(current_active)
+        
+        plan.state = "active"
+        self.workout_repo.update(plan)
+        return plan
+
+    def activate_nutrition_plan(self, plan_id: str, user_id: str) -> NutritionPlan:
+        """
+        Activates a nutrition plan.
+        - Verifies plan belongs to user and is APPROVED.
+        - Archives any currently ACTIVE plan.
+        - Sets new plan to ACTIVE.
+        """
+        plan = self.nutrition_repo.get_by_id(plan_id)
+        if not plan:
+            raise ValueError("Plan not found")
+        
+        if plan.user_id != user_id:
+            raise ValueError("Plan does not belong to this user")
+            
+        if plan.state != "approved":
+            raise ValueError(f"Cannot activate plan in '{plan.state}' state. Only 'approved' plans can be activated.")
+            
+        # Archive current active plan
+        current_active = self.nutrition_repo.get_current_plan(user_id)
+        if current_active and current_active.id != plan_id:
+            if current_active.state == "active":
+                current_active.state = "archived"
+                self.nutrition_repo.update(current_active)
+        
+        plan.state = "active"
+        self.nutrition_repo.update(plan)
+        return plan

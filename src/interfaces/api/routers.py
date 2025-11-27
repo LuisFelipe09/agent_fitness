@@ -635,6 +635,22 @@ def get_current_workout_plan(
         
     return plan
 
+@router.post("/users/{user_id}/plans/workout/{plan_id}/activate")
+def activate_workout_plan(
+    user_id: str,
+    plan_id: str,
+    current_user: User = Depends(get_current_user),
+    service: PlanningService = Depends(get_planning_service)
+):
+    """Activate a workout plan (Client only)"""
+    if current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to activate this plan")
+        
+    try:
+        return service.activate_workout_plan(plan_id, user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @router.post("/users/{user_id}/plans/workout")
 def generate_workout(user_id: str, service: PlanningService = Depends(get_planning_service)):
     """DEPRECATED: Use /plans/workout instead"""
@@ -661,6 +677,22 @@ def get_current_nutrition_plan(
         raise HTTPException(status_code=404, detail="No active nutrition plan found")
         
     return plan
+
+@router.post("/users/{user_id}/plans/nutrition/{plan_id}/activate")
+def activate_nutrition_plan(
+    user_id: str,
+    plan_id: str,
+    current_user: User = Depends(get_current_user),
+    service: PlanningService = Depends(get_planning_service)
+):
+    """Activate a nutrition plan (Client only)"""
+    if current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to activate this plan")
+        
+    try:
+        return service.activate_nutrition_plan(plan_id, user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/users/{user_id}/plans/nutrition")
 def generate_nutrition(user_id: str, service: PlanningService = Depends(get_planning_service)):

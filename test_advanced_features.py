@@ -180,5 +180,23 @@ def test_flow():
     if len(comments) > 0:
         print(f"✅ Comment content: {comments[0]['content']}")
 
+    # 7. Activate Plan
+    print("\n7. Activating plan...")
+    # Plan should be 'approved' now
+    res = requests.post(
+        f"{BASE_URL}/users/{CLIENT_ID}/plans/workout/{plan_id}/activate",
+        headers={"X-User-Id": CLIENT_ID}
+    )
+    
+    if res.status_code == 200:
+        active_plan = res.json()
+        print(f"✅ Plan activated. New State: {active_plan.get('state')}")
+        if active_plan.get('state') == 'active':
+            print("✅ State verification passed")
+        else:
+            print("❌ State verification failed")
+    else:
+        print(f"❌ Failed to activate plan: {res.text}")
+
 if __name__ == "__main__":
     test_flow()
