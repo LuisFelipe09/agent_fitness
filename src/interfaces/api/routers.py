@@ -10,7 +10,8 @@ from src.dependencies import (
     get_version_service,
     get_notification_service
 )
-from src.application.services import UserService, PlanningService
+from src.application.user_service import UserService
+from src.application.planning_service import PlanningService
 from src.application.role_service import RoleService
 from src.application.version_service import VersionService
 from src.application.notification_service import NotificationService

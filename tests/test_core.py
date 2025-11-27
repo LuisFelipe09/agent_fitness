@@ -1,7 +1,8 @@
 import pytest
 from datetime import datetime
 from src.domain.models import User, UserProfile, Goal, ActivityLevel
-from src.application.services import UserService, PlanningService
+from src.application.user_service import UserService
+from src.application.planning_service import PlanningService
 from src.infrastructure.repositories import SqlAlchemyUserRepository, SqlAlchemyWorkoutPlanRepository, SqlAlchemyNutritionPlanRepository
 from src.infrastructure.database import SessionLocal, Base, engine
 from src.infrastructure.ai_service import GeminiAIService

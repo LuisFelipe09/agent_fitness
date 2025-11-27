@@ -4,7 +4,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppI
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
 from src.infrastructure.database import SessionLocal
 from src.infrastructure.repositories import SqlAlchemyUserRepository
-from src.application.services import UserService
+from src.application.user_service import UserService
 
 # Enable logging
 logging.basicConfig(

@@ -17,13 +17,16 @@ from src.infrastructure.repositories import (
     SqlAlchemyPlanCommentRepository,
     SqlAlchemyNotificationRepository
 )
-from src.application.services import UserService, PlanningService
+from src.application.user_service import UserService
+from src.application.planning_service import PlanningService
+from src.application.role_service import RoleService
 from src.application.version_service import VersionService
 from src.application.comment_service import CommentService
 from src.application.notification_service import NotificationService
-from src.application.role_service import RoleService
 from src.application.interfaces import AIService
 from src.infrastructure.ai_service import GeminiAIService
+
+import os
 
 # Repository Providers
 def get_user_repository(db: Session = Depends(get_db)) -> UserRepository:
