@@ -103,9 +103,8 @@ def test_flow():
         print("DEBUG: Plan NOT found in DB after save!")
     
     # Verify it exists via API
-    # We don't have a get_plan endpoint for client yet? 
-    # Actually we do: get_current_workout_plan
-    res = requests.get(f"{BASE_URL}/users/{CLIENT_ID}/plans/workout/current", headers={"X-User-Id": CLIENT_ID})
+    # New endpoint: /plans/workout/current
+    res = requests.get(f"{BASE_URL}/plans/workout/current", headers={"X-User-Id": CLIENT_ID})
     if res.status_code == 200:
         plan = res.json()
         print(f"✅ Plan created: {plan['id']} (State: {plan.get('state')})")
@@ -179,12 +178,12 @@ def test_flow():
     print(f"Found {len(comments)} comments")
     if len(comments) > 0:
         print(f"✅ Comment content: {comments[0]['content']}")
-
+    
     # 7. Activate Plan
     print("\n7. Activating plan...")
     # Plan should be 'approved' now
     res = requests.post(
-        f"{BASE_URL}/users/{CLIENT_ID}/plans/workout/{plan_id}/activate",
+        f"{BASE_URL}/plans/workout/{plan_id}/activate",
         headers={"X-User-Id": CLIENT_ID}
     )
     

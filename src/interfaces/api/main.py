@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from src.interfaces.api.routers import router as api_router
-from src.interfaces.api.advanced_routers import router as advanced_router
+
 from src.infrastructure.database import engine, Base
 import os
 
@@ -16,7 +16,7 @@ app.mount("/static", StaticFiles(directory=static_dir, html=True), name="static"
 
 # Include routers
 app.include_router(api_router)
-app.include_router(advanced_router)
+
 
 @app.get("/")
 def read_root():
