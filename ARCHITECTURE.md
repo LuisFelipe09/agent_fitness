@@ -91,9 +91,15 @@ graph TB
 
 **Components**:
 - **API** (`api/`):
-  - [routers.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/interfaces/api/routers.py): Main endpoints
-  - [advanced_routers.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/interfaces/api/advanced_routers.py): Advanced endpoints (versions, comments)
-  - [auth.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/interfaces/api/auth.py): Authentication and authorization
+  - **Routers** (`routers/`): Modular endpoints
+    - [users.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/interfaces/api/routers/users.py): User management
+    - [plans.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/interfaces/api/routers/plans.py): Plan generation
+    - [trainer.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/interfaces/api/routers/trainer.py): Trainer operations
+    - [nutritionist.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/interfaces/api/routers/nutritionist.py): Nutritionist operations
+    - [admin.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/interfaces/api/routers/admin.py): Admin operations
+    - [versions.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/interfaces/api/routers/versions.py): Plan versioning
+    - [comments.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/interfaces/api/routers/comments.py): Plan comments
+    - [notifications.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/interfaces/api/routers/notifications.py): User notifications
   - **DTOs** (`dto/`): Data Transfer Objects for request/response
     - [user_dto.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/interfaces/api/dto/user_dto.py): User DTOs
     - [plan_dto.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/interfaces/api/dto/plan_dto.py): Plan DTOs
@@ -269,7 +275,7 @@ def get_planning_service(
 ) -> PlanningService:
     return PlanningService(ai_service, workout_repo, nutrition_repo, user_repo)
 
-# routers.py uses the abstraction
+# src/interfaces/api/routers/plans.py uses the abstraction
 @router.post("/plans/workout")
 def generate_workout(
     current_user: User = Depends(get_current_user),
