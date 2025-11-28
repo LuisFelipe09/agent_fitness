@@ -1,11 +1,11 @@
 from typing import Optional, List
 from sqlalchemy.orm import Session
 from src.domain.models import User, UserProfile, Goal, ActivityLevel
-from src.domain.repositories import UserRepository
+from src.domain.repositories import CompleteUserRepository
 from src.infrastructure.orm_models import UserORM
 from dataclasses import asdict
 
-class SqlAlchemyUserRepository(UserRepository):
+class SqlAlchemyUserRepository(CompleteUserRepository):
     def __init__(self, db: Session):
         self.db = db
 

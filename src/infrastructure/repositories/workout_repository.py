@@ -1,7 +1,7 @@
 from typing import Optional, List
 from sqlalchemy.orm import Session
 from src.domain.models import WorkoutPlan, WorkoutSession, Exercise
-from src.domain.repositories import WorkoutPlanRepository
+from src.domain.repositories import WorkoutPlanRepository, PlanRepository
 from src.infrastructure.orm_models import WorkoutPlanORM
 from dataclasses import asdict
 

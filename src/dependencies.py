@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from src.infrastructure.database import get_db
 from src.domain.repositories import (
     UserRepository, 
+    CompleteUserRepository,
     WorkoutPlanRepository, 
     NutritionPlanRepository,
     PlanVersionRepository,
@@ -29,7 +30,7 @@ from src.infrastructure.ai_service import GeminiAIService
 import os
 
 # Repository Providers
-def get_user_repository(db: Session = Depends(get_db)) -> UserRepository:
+def get_user_repository(db: Session = Depends(get_db)) -> CompleteUserRepository:
     return SqlAlchemyUserRepository(db)
 
 def get_workout_repository(db: Session = Depends(get_db)) -> WorkoutPlanRepository:

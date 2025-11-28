@@ -1,13 +1,13 @@
 from typing import List, Optional
 from src.domain.models import User
 from src.domain.permissions import Role
-from src.domain.repositories import UserRepository
+from src.domain.repositories import UserRepository, CompleteUserRepository
 
 
 class RoleService:
     """Service for managing user roles and assignments"""
     
-    def __init__(self, user_repo: UserRepository):
+    def __init__(self, user_repo: CompleteUserRepository):
         self.user_repo = user_repo
     
     def assign_role(self, admin_id: str, user_id: str, role: str) -> User:

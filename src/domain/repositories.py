@@ -1,8 +1,30 @@
 from abc import ABC, abstractmethod
-from typing import Optional, List
+from typing import Optional, List, TypeVar, Generic
 from .models import User, WorkoutPlan, NutritionPlan, PlanVersion, PlanComment, Notification
 
+# Generic Type for Plans
+T = TypeVar('T', bound='WorkoutPlan | NutritionPlan')
+
+class PlanRepository(ABC, Generic[T]):
+    """Generic interface for plan repositories"""
+    @abstractmethod
+    def save(self, plan: T) -> None:
+        pass
+    
+    @abstractmethod
+    def get_by_id(self, plan_id: str) -> Optional[T]:
+        pass
+    
+    @abstractmethod
+    def update(self, plan: T) -> None:
+        pass
+        
+    @abstractmethod
+    def get_current_plan(self, user_id: str) -> Optional[T]:
+        pass
+
 class UserRepository(ABC):
+    """Basic CRUD operations for users"""
     @abstractmethod
     def get_by_id(self, user_id: str) -> Optional[User]:
         pass
@@ -15,41 +37,37 @@ class UserRepository(ABC):
     def update(self, user: User) -> None:
         pass
 
-class WorkoutPlanRepository(ABC):
+class UserQueryRepository(ABC):
+    """Query operations for users"""
     @abstractmethod
-    def get_current_plan(self, user_id: str) -> Optional[WorkoutPlan]:
-        pass
-
-    @abstractmethod
-    def save(self, plan: WorkoutPlan) -> None:
+    def get_by_role(self, role: str) -> List[User]:
         pass
     
     @abstractmethod
-    def get_by_id(self, plan_id: str) -> Optional[WorkoutPlan]:
-        """Get a workout plan by its ID"""
+    def get_all(self) -> List[User]:
+        pass
+
+class UserRelationshipRepository(ABC):
+    """Relationship operations for users (trainer/nutritionist clients)"""
+    @abstractmethod
+    def get_clients_by_trainer(self, trainer_id: str) -> List[User]:
         pass
     
     @abstractmethod
-    def update(self, plan: WorkoutPlan) -> None:
-        """Update an existing workout plan"""
+    def get_clients_by_nutritionist(self, nutritionist_id: str) -> List[User]:
         pass
 
-class NutritionPlanRepository(ABC):
-    @abstractmethod
-    def save(self, plan: NutritionPlan) -> None:
-        pass
-    
-    @abstractmethod
-    def get_current_plan(self, user_id: str) -> Optional[NutritionPlan]:
-        pass
+class CompleteUserRepository(UserRepository, UserQueryRepository, UserRelationshipRepository, ABC):
+    """Composite interface for full user repository functionality"""
+    pass
 
-    @abstractmethod
-    def get_by_id(self, plan_id: str) -> Optional[NutritionPlan]:
-        pass
+class WorkoutPlanRepository(PlanRepository[WorkoutPlan]):
+    """Workout specific operations"""
+    pass
 
-    @abstractmethod
-    def update(self, plan: NutritionPlan) -> None:
-        pass
+class NutritionPlanRepository(PlanRepository[NutritionPlan]):
+    """Nutrition specific operations"""
+    pass
 
 class PlanVersionRepository(ABC):
     @abstractmethod

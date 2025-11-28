@@ -1,7 +1,7 @@
 from typing import Optional, List
 from sqlalchemy.orm import Session
 from src.domain.models import NutritionPlan, DailyMealPlan, Meal
-from src.domain.repositories import NutritionPlanRepository
+from src.domain.repositories import NutritionPlanRepository, PlanRepository
 from src.infrastructure.orm_models import NutritionPlanORM
 from dataclasses import asdict
 
