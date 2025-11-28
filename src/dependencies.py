@@ -25,7 +25,7 @@ from src.application.version_service import VersionService
 from src.application.comment_service import CommentService
 from src.application.notification_service import NotificationService
 from src.application.interfaces import AIService
-from src.infrastructure.ai_service import GeminiAIService
+from src.infrastructure.ai import GeminiAIService
 
 import os
 
@@ -48,12 +48,17 @@ def get_comment_repository(db: Session = Depends(get_db)) -> PlanCommentReposito
 def get_notification_repository(db: Session = Depends(get_db)) -> NotificationRepository:
     return SqlAlchemyNotificationRepository(db)
 
-import os
+from src.config import get_settings
 
 # Service Providers
 def get_ai_service() -> AIService:
-    api_key = os.getenv("GEMINI_API_KEY", "dummy_key")
-    return GeminiAIService(api_key)
+    settings = get_settings()
+    # You can switch provider based on settings here if needed
+    if settings.DEFAULT_AI_PROVIDER == "openai":
+        from src.infrastructure.ai import OpenAIService
+        return OpenAIService(settings.OPENAI_API_KEY)
+    
+    return GeminiAIService(settings.GEMINI_API_KEY)
 
 def get_user_service(user_repo: UserRepository = Depends(get_user_repository)) -> UserService:
     return UserService(user_repo)

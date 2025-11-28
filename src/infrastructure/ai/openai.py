@@ -1,17 +1,22 @@
-import google.generativeai as genai
 import os
 import json
-import uuid
-from datetime import datetime, timedelta
+from typing import Dict, Any
 from src.application.interfaces import AIService
-from src.domain.models import UserProfile, WorkoutPlan, NutritionPlan, WorkoutSession, DailyMealPlan, Exercise, Meal
+from src.domain.models import UserProfile
 
-class GeminiAIService(AIService):
+try:
+    from openai import OpenAI
+except ImportError:
+    OpenAI = None
+
+class OpenAIService(AIService):
     def __init__(self, api_key: str):
-        genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-pro')
+        if OpenAI is None:
+            raise ImportError("openai package is not installed. Please install it with `pip install openai`")
+        self.client = OpenAI(api_key=api_key)
+        self.model = "gpt-4-turbo-preview" # Or gpt-3.5-turbo
 
-    def generate_workout_plan(self, profile: UserProfile) -> WorkoutPlan:
+    def generate_workout_plan(self, profile: UserProfile) -> Dict[str, Any]:
         prompt = f"""
         Act as a professional fitness coach. Generate a 1-week workout plan for a user with the following profile:
         - Age: {profile.age}
@@ -32,7 +37,8 @@ class GeminiAIService(AIService):
                             "description": "Brief description",
                             "sets": 3,
                             "reps": "10-12",
-                            "rest_time": "60s"
+                            "rest_time": "60s",
+                            "video_url": "optional_url"
                         }}
                     ]
                 }}
@@ -41,29 +47,23 @@ class GeminiAIService(AIService):
         """
         
         try:
-            response = self.model.generate_content(prompt)
-            # Clean response if it contains markdown code blocks
-            text = response.text.replace('```json', '').replace('```', '').strip()
-            data = json.loads(text)
-            
-            sessions = []
-            for s in data['sessions']:
-                exercises = [Exercise(**e) for e in s['exercises']]
-                sessions.append(WorkoutSession(day=s['day'], focus=s['focus'], exercises=exercises))
-
-            return WorkoutPlan(
-                id=str(uuid.uuid4()),
-                user_id="temp", # Will be set by service
-                start_date=datetime.now(),
-                end_date=datetime.now() + timedelta(days=7),
-                sessions=sessions
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "You are a helpful fitness assistant that outputs only JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                response_format={"type": "json_object"}
             )
+            
+            content = response.choices[0].message.content
+            data = json.loads(content)
+            return data
         except Exception as e:
-            print(f"Error generating workout plan: {e}")
-            # Fallback to a basic plan or re-raise
-            raise ValueError("Failed to generate workout plan from AI")
+            print(f"Error generating workout plan with OpenAI: {e}")
+            raise ValueError("Failed to generate workout plan from OpenAI")
 
-    def generate_nutrition_plan(self, profile: UserProfile) -> NutritionPlan:
+    def generate_nutrition_plan(self, profile: UserProfile) -> Dict[str, Any]:
         prompt = f"""
         Act as a professional nutritionist. Generate a 1-week meal plan for a user with the following profile:
         - Age: {profile.age}
@@ -94,22 +94,18 @@ class GeminiAIService(AIService):
         """
         
         try:
-            response = self.model.generate_content(prompt)
-            text = response.text.replace('```json', '').replace('```', '').strip()
-            data = json.loads(text)
-            
-            daily_plans = []
-            for d in data['daily_plans']:
-                meals = [Meal(**m) for m in d['meals']]
-                daily_plans.append(DailyMealPlan(day=d['day'], meals=meals))
-
-            return NutritionPlan(
-                id=str(uuid.uuid4()),
-                user_id="temp",
-                start_date=datetime.now(),
-                end_date=datetime.now() + timedelta(days=7),
-                daily_plans=daily_plans
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "You are a helpful nutritionist assistant that outputs only JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                response_format={"type": "json_object"}
             )
+            
+            content = response.choices[0].message.content
+            data = json.loads(content)
+            return data
         except Exception as e:
-            print(f"Error generating nutrition plan: {e}")
-            raise ValueError("Failed to generate nutrition plan from AI")
+            print(f"Error generating nutrition plan with OpenAI: {e}")
+            raise ValueError("Failed to generate nutrition plan from OpenAI")

@@ -28,10 +28,45 @@ class PlanningService:
         if not user or not user.profile:
             raise ValueError("User profile incomplete or not found")
 
-        plan = self.ai_service.generate_workout_plan(user.profile)
-        plan.user_id = user_id # Ensure the plan is linked to the user
-        plan.created_by = user_id  # Track who created the plan
-        plan.state = "draft"  # Initial state
+        # Get raw data from AI service
+        plan_data = self.ai_service.generate_workout_plan(user.profile)
+        
+        # Convert raw data to domain objects
+        sessions = []
+        if 'sessions' in plan_data:
+            for s in plan_data['sessions']:
+                exercises = []
+                if 'exercises' in s:
+                    for e in s['exercises']:
+                        exercises.append(Exercise(
+                            name=e.get('name', 'Unknown Exercise'),
+                            description=e.get('description', ''),
+                            sets=e.get('sets', 0),
+                            reps=str(e.get('reps', '')),
+                            rest_time=str(e.get('rest_time', '')),
+                            video_url=e.get('video_url')
+                        ))
+                sessions.append(WorkoutSession(
+                    day=s.get('day', 'Unknown Day'),
+                    focus=s.get('focus', 'General'),
+                    exercises=exercises
+                ))
+
+        # Create domain plan
+        import uuid
+        from datetime import datetime, timedelta
+        
+        plan = WorkoutPlan(
+            id=str(uuid.uuid4()),
+            user_id=user_id,
+            start_date=datetime.now(),
+            end_date=datetime.now() + timedelta(days=7),
+            sessions=sessions,
+            created_at=datetime.now(),
+            created_by=user_id,
+            state="draft"
+        )
+        
         self.workout_repo.save(plan)
         return plan
 
@@ -40,10 +75,45 @@ class PlanningService:
         if not user or not user.profile:
             raise ValueError("User profile incomplete or not found")
 
-        plan = self.ai_service.generate_nutrition_plan(user.profile)
-        plan.user_id = user_id
-        plan.created_by = user_id  # Track who created the plan
-        plan.state = "draft"  # Initial state
+        # Get raw data from AI service
+        plan_data = self.ai_service.generate_nutrition_plan(user.profile)
+        
+        # Convert raw data to domain objects
+        daily_plans = []
+        if 'daily_plans' in plan_data:
+            for d in plan_data['daily_plans']:
+                meals = []
+                if 'meals' in d:
+                    for m in d['meals']:
+                        meals.append(Meal(
+                            name=m.get('name', 'Unknown Meal'),
+                            description=m.get('description', ''),
+                            calories=m.get('calories', 0),
+                            protein=m.get('protein', 0),
+                            carbs=m.get('carbs', 0),
+                            fats=m.get('fats', 0),
+                            ingredients=m.get('ingredients', [])
+                        ))
+                daily_plans.append(DailyMealPlan(
+                    day=d.get('day', 'Unknown Day'),
+                    meals=meals
+                ))
+
+        # Create domain plan
+        import uuid
+        from datetime import datetime, timedelta
+        
+        plan = NutritionPlan(
+            id=str(uuid.uuid4()),
+            user_id=user_id,
+            start_date=datetime.now(),
+            end_date=datetime.now() + timedelta(days=7),
+            daily_plans=daily_plans,
+            created_at=datetime.now(),
+            created_by=user_id,
+            state="draft"
+        )
+        
         self.nutrition_repo.save(plan)
         return plan
 

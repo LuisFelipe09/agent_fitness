@@ -5,7 +5,7 @@ from src.application.user_service import UserService
 from src.application.planning_service import PlanningService
 from src.infrastructure.repositories import SqlAlchemyUserRepository, SqlAlchemyWorkoutPlanRepository, SqlAlchemyNutritionPlanRepository
 from src.infrastructure.database import SessionLocal, Base, engine
-from src.infrastructure.ai_service import GeminiAIService
+from src.infrastructure.ai import GeminiAIService
 
 # Setup test DB
 Base.metadata.create_all(bind=engine)
