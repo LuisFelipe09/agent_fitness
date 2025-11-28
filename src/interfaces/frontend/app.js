@@ -289,6 +289,50 @@ function saveProfile() {
                 alert("Error saving profile");
             }
         });
+    alert("Error saving profile");
+}
+        });
+}
+
+function togglePasswordForm() {
+    const form = document.getElementById('password-form');
+    form.classList.toggle('hidden');
+}
+
+async function setWebPassword() {
+    const email = document.getElementById('web-email').value;
+    const password = document.getElementById('web-password').value;
+
+    if (!password) {
+        alert("Password is required");
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/auth/set-password`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-Id': userId
+            },
+            body: JSON.stringify({
+                email: email || null,
+                password: password
+            })
+        });
+
+        if (res.ok) {
+            alert("Password set successfully! You can now login via web.");
+            document.getElementById('password-form').classList.add('hidden');
+            document.getElementById('web-password').value = '';
+        } else {
+            const err = await res.json();
+            alert(`Error: ${err.detail}`);
+        }
+    } catch (e) {
+        alert("Error setting password");
+        console.error(e);
+    }
 }
 
 // Start

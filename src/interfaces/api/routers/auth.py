@@ -14,6 +14,8 @@ from src.interfaces.api.security import (
 )
 from src.infrastructure.database import get_db
 from src.infrastructure.repositories import SqlAlchemyUserRepository
+from src.domain.models import User
+from src.interfaces.api.auth import get_current_user
 
 router = APIRouter()
 

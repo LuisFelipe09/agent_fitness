@@ -63,6 +63,23 @@
             <button onclick="saveProfile()">Save Profile</button>
         </div>
 
+        <div id="password-section" style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px;">
+            <button class="secondary" onclick="togglePasswordForm()">🔐 Set Web Password</button>
+            
+            <div id="password-form" class="hidden" style="margin-top: 15px;">
+                <h3>Set Web Access Password</h3>
+                <p style="font-size: 12px; color: #666;">Set a password to access the admin panel via web.</p>
+                
+                <label>Email (optional)</label>
+                <input type="email" id="web-email" placeholder="admin@example.com">
+                
+                <label>New Password</label>
+                <input type="password" id="web-password" placeholder="********">
+                
+                <button onclick="setWebPassword()">Set Password</button>
+            </div>
+        </div>
+
         <div id="actions" class="hidden">
             <h2>Actions</h2>
             <button onclick="generateWorkout()">Generate Workout Plan</button>
