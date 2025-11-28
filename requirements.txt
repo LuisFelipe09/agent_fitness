@@ -1,5 +1,5 @@
 fastapi
-uvicorn
+uvicorn[standard]
 sqlalchemy
 pydantic
 python-telegram-bot
@@ -7,3 +7,5 @@ google-generativeai
 python-dotenv
 pytest
 httpx
+requests
+psycopg2-binary

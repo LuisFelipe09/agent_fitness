@@ -1,0 +1,20 @@
+services:
+  # Web Service
+  - type: web
+    name: ai-fitness-agent
+    env: python
+    region: oregon
+    plan: free
+    branch: main
+    buildCommand: "./build.sh"
+    startCommand: "uvicorn src.interfaces.api.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.0
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: DEFAULT_AI_PROVIDER
+        value: gemini
+      - key: DATABASE_URL
+        sync: false  # Set this in Render Dashboard with your Supabase connection string
+    autoDeploy: true
