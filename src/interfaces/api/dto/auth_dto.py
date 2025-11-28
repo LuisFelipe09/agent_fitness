@@ -1,14 +1,11 @@
 """
-Authentication and role-related Data Transfer Objects (DTOs).
-
-These DTOs handle role assignments and professional assignments.
+Additional auth DTO for password setup.
 """
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
+from typing import Optional
 
-class RoleAssignmentRequest(BaseModel):
-    """Request model for assigning a role to a user"""
-    role: str
 
-class ProfessionalAssignmentRequest(BaseModel):
-    """Request model for assigning a trainer or nutritionist to a client"""
-    professional_id: str
+class SetPassword(BaseModel):
+    """Set password for Telegram users."""
+    email: Optional[EmailStr] = None
+    password: str

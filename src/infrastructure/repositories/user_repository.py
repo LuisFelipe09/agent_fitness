@@ -34,6 +34,8 @@ class SqlAlchemyUserRepository(CompleteUserRepository):
             roles=user_orm.roles if user_orm.roles else ["client"],
             profile=profile,
             created_at=user_orm.created_at,
+            password_hash=user_orm.password_hash,
+            email=user_orm.email,
             trainer_id=user_orm.trainer_id,
             nutritionist_id=user_orm.nutritionist_id
         )
@@ -52,6 +54,8 @@ class SqlAlchemyUserRepository(CompleteUserRepository):
             roles=user.roles,
             profile_data=profile_data,
             created_at=user.created_at,
+            password_hash=user.password_hash,
+            email=user.email,
             trainer_id=user.trainer_id,
             nutritionist_id=user.nutritionist_id
         )
@@ -114,3 +118,17 @@ class SqlAlchemyUserRepository(CompleteUserRepository):
             if user:
                 users.append(user)
         return users
+    
+    def get_by_username(self, username: str) -> Optional[User]:
+        """Get user by username"""
+        user_orm = self.db.query(UserORM).filter(UserORM.username == username).first()
+        if not user_orm:
+            return None
+        return self.get_by_id(user_orm.id)
+    
+    def get_by_email(self, email: str) -> Optional[User]:
+        """Get user by email"""
+        user_orm = self.db.query(UserORM).filter(UserORM.email == email).first()
+        if not user_orm:
+            return None
+        return self.get_by_id(user_orm.id)

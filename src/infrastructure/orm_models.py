@@ -17,6 +17,10 @@ class UserORM(Base):
     # but could be normalized in a real app
     profile_data = Column(JSON, nullable=True)
     
+    # Authentication fields
+    password_hash = Column(String, nullable=True)  # For web login
+    email = Column(String, unique=True, nullable=True, index=True)
+    
     # Relationships with trainer and nutritionist
     trainer_id = Column(String, ForeignKey("users.id"), nullable=True)
     nutritionist_id = Column(String, ForeignKey("users.id"), nullable=True)

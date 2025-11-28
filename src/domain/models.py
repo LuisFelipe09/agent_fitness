@@ -54,6 +54,10 @@ class User:
     profile: Optional[UserProfile] = None
     created_at: datetime = field(default_factory=datetime.now)
     
+    # Authentication fields
+    password_hash: Optional[str] = None  # For web login
+    email: Optional[str] = None
+    
     # Relationships for trainers/nutritionists
     trainer_id: Optional[str] = None
     nutritionist_id: Optional[str] = None

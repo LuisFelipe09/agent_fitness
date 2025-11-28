@@ -1,52 +1,62 @@
 """Authentication and authorization utilities for the API"""
 
 from fastapi import HTTPException, Depends, Header
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from typing import Optional
 from src.domain.repositories import UserRepository
 from src.dependencies import get_user_repository
 from src.domain.models import User
 from src.domain.permissions import Role, Permission
+from src.interfaces.api.security import decode_token
 
-def get_current_user_id(x_user_id: Optional[str] = Header(None)) -> str:
-    """Extract user ID from request header
-    
-    In a production app, this would validate JWT tokens or session cookies.
-    For the MVP with Telegram Mini App, we use a simple header.
-    
-    Args:
-        x_user_id: User ID from X-User-Id header
-        
-    Returns:
-        User ID string
-        
-    Raises:
-        HTTPException: If user ID not provided
-    """
-    if not x_user_id:
-        raise HTTPException(
-            status_code=401, 
-            detail="Authentication required. X-User-Id header missing."
-        )
-    return x_user_id
+security = HTTPBearer(auto_error=False)
 
 
 def get_current_user(
-    user_id: str = Depends(get_current_user_id),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
     user_repo: UserRepository = Depends(get_user_repository)
 ) -> User:
-    """Get the current authenticated user
+    """Get the current authenticated user.
+    
+    Supports two authentication methods:
+    1. JWT token in Authorization header (for web/admin panel)
+    2. Telegram user ID in X-User-Id header (for Telegram Mini App)
     
     Args:
-        user_id: User ID from header
+        credentials: Bearer token from Authorization header
+        x_user_id: User ID from X-User-Id header (Telegram)
         user_repo: User repository
         
     Returns:
         User object
         
     Raises:
-        HTTPException: If user not found
+        HTTPException: If authentication fails or user not found
     """
+    user_id = None
+    
+    # Try JWT authentication first
+    if credentials:
+        try:
+            token_data = decode_token(credentials.credentials)
+            user_id = token_data.get("sub")
+        except HTTPException:
+            # Invalid JWT, try Telegram auth
+            pass
+    
+    # Fallback to Telegram auth
+    if not user_id and x_user_id:
+        user_id = x_user_id
+    
+    if not user_id:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required. Provide JWT token or X-User-Id header.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
     user = user_repo.get_by_id(user_id)
     
     if not user:

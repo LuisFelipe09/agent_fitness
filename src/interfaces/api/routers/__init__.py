@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from src.interfaces.api.routers import (
+    auth,
     users,
     plans,
     admin,
@@ -12,6 +13,7 @@ from src.interfaces.api.routers import (
 
 router = APIRouter()
 
+router.include_router(auth.router, tags=["Auth"])
 router.include_router(users.router, tags=["Users"])
 router.include_router(plans.router, tags=["Plans"])
 router.include_router(admin.router, tags=["Admin"])
