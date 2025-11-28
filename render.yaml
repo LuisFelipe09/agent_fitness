@@ -17,4 +17,8 @@ services:
         value: gemini
       - key: DATABASE_URL
         sync: false  # Set this in Render Dashboard with your Supabase connection string
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false  # Set this in Render Dashboard
+      - key: WEB_APP_URL
+        sync: false
     autoDeploy: true
