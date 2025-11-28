@@ -60,19 +60,30 @@ graph TB
 **Responsabilidad**: Orquesta la lógica de negocio y coordina entre dominio e infraestructura.
 
 **Componentes**:
-- [services.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/application/services.py): `UserService`, `PlanningService`
-- [role_service.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/application/role_service.py): Gestión de roles
-- [version_service.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/application/version_service.py): Control de versiones
+- [user_service.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/application/user_service.py): `UserService` - Gestión de usuarios
+- [planning_service.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/application/planning_service.py): `PlanningService` - Generación y gestión de planes
+- [role_service.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/application/role_service.py): Gestión de roles y asignaciones
+- [version_service.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/application/version_service.py): Control de versiones de planes
 - [comment_service.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/application/comment_service.py): Comentarios en planes
-- [notification_service.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/application/notification_service.py): Notificaciones
+- [notification_service.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/application/notification_service.py): Sistema de notificaciones
+- [interfaces.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/application/interfaces.py): Interfaces de servicios externos (AIService)
 
 ### 3. **Infrastructure Layer** (`src/infrastructure/`)
 **Responsabilidad**: Implementaciones concretas de tecnologías y frameworks.
 
 **Componentes**:
-- **Repositories** (`repositories/`): Implementaciones SQLAlchemy de las interfaces del dominio
+- **Repositories** (`repositories/`): Implementaciones SQLAlchemy segregadas por dominio
+  - [user_repository.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/infrastructure/repositories/user_repository.py)
+  - [workout_repository.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/infrastructure/repositories/workout_repository.py)
+  - [nutrition_repository.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/infrastructure/repositories/nutrition_repository.py)
+  - [version_repository.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/infrastructure/repositories/version_repository.py)
+  - [comment_repository.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/infrastructure/repositories/comment_repository.py)
+  - [notification_repository.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/infrastructure/repositories/notification_repository.py)
+- **AI Services** (`ai/`): Proveedores de IA usando Template Method Pattern
+  - [base.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/infrastructure/ai/base.py): `BaseAIService` con lógica compartida
+  - [gemini.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/infrastructure/ai/gemini.py): Integración con Google Gemini
+  - [openai.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/infrastructure/ai/openai.py): Integración con OpenAI
 - [database.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/infrastructure/database.py): Configuración de base de datos
-- [ai_service.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/infrastructure/ai_service.py): Integración con Gemini AI
 - [orm_models.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/infrastructure/orm_models.py): Modelos ORM de SQLAlchemy
 
 ### 4. **Interface Layer** (`src/interfaces/`)
@@ -81,12 +92,19 @@ graph TB
 **Componentes**:
 - **API** (`api/`):
   - [routers.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/interfaces/api/routers.py): Endpoints principales
-  - [advanced_routers.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/interfaces/api/advanced_routers.py): Endpoints avanzados
+  - [advanced_routers.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/interfaces/api/advanced_routers.py): Endpoints avanzados (versiones, comentarios)
   - [auth.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/interfaces/api/auth.py): Autenticación y autorización
+  - **DTOs** (`dto/`): Data Transfer Objects para request/response
+    - [user_dto.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/interfaces/api/dto/user_dto.py): DTOs de usuario
+    - [plan_dto.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/interfaces/api/dto/plan_dto.py): DTOs de planes
+    - [auth_dto.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/interfaces/api/dto/auth_dto.py): DTOs de autenticación
 - **Frontend** (`frontend/`): Interfaz web del cliente
 
-### 5. **Dependency Injection** ([dependencies.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/dependencies.py))
-**Responsabilidad**: Configuración centralizada de inyección de dependencias.
+### 5. **Configuration** ([config.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/config.py))
+**Responsabilidad**: Configuración centralizada de la aplicación (variables de entorno, proveedores de IA, base de datos).
+
+### 6. **Dependency Injection** ([dependencies.py](file:///Users/felipe/Documents/software_propio/agent_fitness/src/dependencies.py))
+**Responsabilidad**: Composition Root - ensambla todas las dependencias de la aplicación.
 
 ---
 
@@ -160,22 +178,52 @@ class MockUserRepository(UserRepository):
 service = UserService(user_repo)  # user_repo puede ser cualquier implementación
 ```
 
-### **I - Interface Segregation Principle**
+###  **I - Interface Segregation Principle**
 
-Las interfaces están segregadas por dominio específico:
+Las interfaces están diseñadas para ser específicas y no forzar a los clientes a depender de métodos que no usan.
 
-```mermaid
-graph TB
-    UserRepo[UserRepository<br/>get_by_id, save, update<br/>get_by_role, get_all]
-    PlanRepo[WorkoutPlanRepository<br/>get_current_plan<br/>get_by_id, save, update]
-    VersionRepo[PlanVersionRepository<br/>save, get_by_plan_id<br/>get_by_id]
+#### Repositorio de Usuarios Segregado
+
+```python
+class UserRepository(ABC):
+    """CRUD básico"""
+    @abstractmethod
+    def get_by_id(self, user_id: str) -> Optional[User]: pass
     
-    style UserRepo fill:#e1f5ff
-    style PlanRepo fill:#e1f5ff
-    style VersionRepo fill:#e1f5ff
+class UserQueryRepository(ABC):
+    """Consultas complejas"""
+    @abstractmethod
+    def get_by_role(self, role: str) -> List[User]: pass
+    
+class UserRelationshipRepository(ABC):
+    """Relaciones trainer/nutritionist"""
+    @abstractmethod
+    def get_clients_by_trainer(self, trainer_id: str) -> List[User]: pass
+
+class CompleteUserRepository(UserRepository, UserQueryRepository, UserRelationshipRepository, ABC):
+    """Para servicios que requieren funcionalidad completa"""
+    pass
 ```
 
-**Beneficio**: Cada repositorio solo expone los métodos que necesita su dominio.
+**Beneficio**: `UserService` solo depende de `UserRepository` (CRUD), mientras que `RoleService` usa `CompleteUserRepository`.
+
+#### Repositorio Genérico de Planes
+
+```python
+class PlanRepository(ABC, Generic[T]):
+    """Base genérica para planes"""
+    @abstractmethod
+    def get_by_id(self, plan_id: str) -> Optional[T]: pass
+    @abstractmethod
+    def update(self, plan: T) -> None: pass
+
+class WorkoutPlanRepository(PlanRepository[WorkoutPlan]): pass
+class NutritionPlanRepository(PlanRepository[NutritionPlan]): pass
+```
+
+**Beneficio**: Elimina duplicación y garantiza type safety con Generics.
+
+
 
 ### **D - Dependency Inversion Principle**
 
@@ -330,7 +378,45 @@ Centralizado en [dependencies.py](file:///Users/felipe/Documents/software_propio
 Los servicios en `src/application/` orquestan operaciones complejas.
 
 ### 4. **Strategy Pattern**
-Implementado implícitamente a través de interfaces (e.g., `AIService` puede tener múltiples implementaciones: Gemini, OpenAI, etc.)
+Implementado a través de interfaces:
+- `AIService` tiene múltiples implementaciones: `GeminiAIService`, `OpenAIService`
+- El proveedor se selecciona en `dependencies.py` basado en `config.DEFAULT_AI_PROVIDER`
+
+### 5. **Template Method Pattern**
+Aplicado en servicios de IA para eliminar duplicación de código:
+
+```python
+class BaseAIService(AIService, ABC):
+    """Clase base con lógica compartida"""
+    
+    def generate_workout_plan(self, profile: UserProfile) -> Dict[str, Any]:
+        prompt = self._build_workout_prompt(profile)  # Método compartido
+        response = self._call_ai_api(prompt)          # Método abstracto (hook)
+        return self._parse_json_response(response)     # Método compartido
+    
+    @abstractmethod
+    def _call_ai_api(self, prompt: str) -> str:
+        """Cada proveedor implementa su llamada API específica"""
+        pass
+
+class GeminiAIService(BaseAIService):
+    def _call_ai_api(self, prompt: str) -> str:
+        response = self.model.generate_content(prompt)
+        return response.text
+
+class OpenAIService(BaseAIService):
+    def _call_ai_api(self, prompt: str) -> str:
+        response = self.client.chat.completions.create(...)
+        return response.choices[0].message.content
+```
+
+**Beneficio**: Los prompts y parsing JSON están centralizados en `BaseAIService`. Cada proveedor solo implementa la llamada API específica.
+
+### 6. **Factory Pattern**
+Las funciones `get_*_service()` en `dependencies.py` actúan como factories que construyen objetos con sus dependencias.
+
+### 7. **DTO Pattern**
+Data Transfer Objects en `src/interfaces/api/dto/` para request/response, separados de modelos de dominio.
 
 ---
 
