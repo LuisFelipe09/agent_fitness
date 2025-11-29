@@ -8,6 +8,9 @@ pip install --upgrade pip
 pip install -r requirements.txt
 
 echo "Running database migrations..."
+# Run authentication columns migration
+python migrations/migrate_auth_columns.py
+
 # Create tables if they don't exist
 python -c "from src.infrastructure.database import Base, engine; Base.metadata.create_all(bind=engine)"
 
