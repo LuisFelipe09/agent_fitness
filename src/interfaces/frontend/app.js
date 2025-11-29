@@ -289,9 +289,6 @@ function saveProfile() {
                 alert("Error saving profile");
             }
         });
-    alert("Error saving profile");
-}
-        });
 }
 
 function togglePasswordForm() {
