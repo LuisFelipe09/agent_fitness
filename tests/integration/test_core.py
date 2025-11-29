@@ -20,10 +20,54 @@ def db_session():
 def user_service(db_session):
     return UserService(SqlAlchemyUserRepository(db_session))
 
+from unittest.mock import MagicMock
+
 @pytest.fixture
 def planning_service(db_session):
+    # Mock AI Service
+    mock_ai = MagicMock()
+    
+    # Mock workout plan response
+    mock_ai.generate_workout_plan.return_value = {
+        "sessions": [
+            {
+                "day": "Monday",
+                "focus": "Chest",
+                "exercises": [
+                    {
+                        "name": "Pushups",
+                        "description": "Standard pushups",
+                        "sets": 3,
+                        "reps": "10",
+                        "rest_time": "60s"
+                    }
+                ]
+            }
+        ]
+    }
+    
+    # Mock nutrition plan response
+    mock_ai.generate_nutrition_plan.return_value = {
+        "daily_plans": [
+            {
+                "day": "Monday",
+                "meals": [
+                    {
+                        "name": "Breakfast",
+                        "description": "Oatmeal",
+                        "calories": 400,
+                        "protein": 15,
+                        "carbs": 60,
+                        "fats": 10,
+                        "ingredients": ["oats", "milk"]
+                    }
+                ]
+            }
+        ]
+    }
+
     return PlanningService(
-        GeminiAIService("dummy_key"),
+        mock_ai,
         SqlAlchemyWorkoutPlanRepository(db_session),
         SqlAlchemyNutritionPlanRepository(db_session),
         SqlAlchemyUserRepository(db_session)
