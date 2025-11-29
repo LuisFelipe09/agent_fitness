@@ -4,6 +4,8 @@ const API_BASE = "";
 // Telegram WebApp
 const tg = window.Telegram.WebApp;
 tg.expand();
+tg.enableClosingConfirmation();
+tg.disableVerticalSwipes(); // Disable swipe-to-close to allow scrolling
 
 const userId = tg.initDataUnsafe?.user?.id ? String(tg.initDataUnsafe.user.id) : "test_user";
 const username = tg.initDataUnsafe?.user?.username || "Test User";
