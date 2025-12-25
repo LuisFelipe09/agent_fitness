@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fitness Agent</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+
+<body>
+    <!-- Notification Bell -->
+    <div class="notification-bell" id="notification-bell">
+        🔔
+        <span id="notification-count" class="notification-badge hidden">0</span>
+        <div id="notification-dropdown" class="notification-dropdown">
+            <div id="notification-list"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h1>Fitness Agent</h1>
+        <div id="user-info">
+            <p>Welcome!</p>
+        </div>
+
+        <div id="profile-form">
+            <h2>Update Profile</h2>
+            <label>Age</label>
+            <input type="number" id="age" placeholder="25">
+
+            <label>Weight (kg)</label>
+            <input type="number" id="weight" placeholder="70">
+
+            <label>Height (cm)</label>
+            <input type="number" id="height" placeholder="175">
+
+            <label>Gender</label>
+            <select id="gender">
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+            </select>
+
+            <label>Goal</label>
+            <select id="goal">
+                <option value="weight_loss">Weight Loss</option>
+                <option value="muscle_gain">Muscle Gain</option>
+                <option value="maintenance">Maintenance</option>
+                <option value="improve_endurance">Improve Endurance</option>
+            </select>
+
+            <label>Activity Level</label>
+            <select id="activity_level">
+                <option value="sedentary">Sedentary</option>
+                <option value="lightly_active">Lightly Active</option>
+                <option value="moderately_active">Moderately Active</option>
+                <option value="very_active">Very Active</option>
+                <option value="extra_active">Extra Active</option>
+            </select>
+
+            <button onclick="saveProfile()">Save Profile</button>
+        </div>
+
+        <div id="password-section" style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px;">
+            <button class="secondary" onclick="togglePasswordForm()">🔐 Set Web Password</button>
+
+            <div id="password-form" class="hidden" style="margin-top: 15px;">
+                <h3>Set Web Access Password</h3>
+                <p style="font-size: 12px; color: #666;">Set a password to access the admin panel via web.</p>
+
+                <label>Email (optional)</label>
+                <input type="email" id="web-email" placeholder="admin@example.com">
+
+                <label>New Password</label>
+                <input type="password" id="web-password" placeholder="********">
+
+                <button onclick="setWebPassword()">Set Password</button>
+            </div>
+        </div>
+
+        <div id="actions" class="hidden">
+            <h2>Actions</h2>
+            <button onclick="generateWorkout()">Generate Workout Plan</button>
+            <button onclick="generateNutrition()">Generate Nutrition Plan</button>
+        </div>
+
+        <div id="result" class="hidden">
+            <div id="result-content"></div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+
+</html>
