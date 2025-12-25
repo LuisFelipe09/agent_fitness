@@ -3,7 +3,29 @@
 # Exit on error
 set -e
 
-echo "Installing dependencies..."
+# --- Frontend Build ---
+echo "Building Frontend..."
+if [ -d "frontend_src" ]; then
+    cd frontend_src
+
+    # Check if node is installed, if not, print warning (Render Python env usually has older node or none, but often recent images have it)
+    node -v
+    npm -v
+
+    echo "Installing frontend dependencies..."
+    npm install
+
+    echo "Building React app..."
+    npm run build
+
+    cd ..
+else
+    echo "frontend_src directory not found!"
+    exit 1
+fi
+
+# --- Backend Build ---
+echo "Installing backend dependencies..."
 pip install --upgrade pip
 pip install -r requirements.txt
 

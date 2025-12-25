@@ -4,3 +4,15 @@ __pycache__/
 *.pyc
 .DS_Store
 fitness_agent.db
+
+# Frontend build artifacts
+src/interfaces/frontend/assets/
+src/interfaces/frontend/index.html
+src/interfaces/frontend/vite.svg
+
+# Node modules
+node_modules/
+frontend_src/node_modules/
+
+# Local logs
+*.log
