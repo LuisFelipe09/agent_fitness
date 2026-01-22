@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { Button } from './ui/button'
 import { Textarea } from './ui/textarea'
@@ -84,13 +85,4 @@ export default function RoutineReviewPanel({ plan, onApprove, onReject }: Routin
       </CardContent>
     </Card>
   )
-}
-
-function useState(initialValue: string): [string, (value: string) => void] {
-  // Simplified useState implementation for this component
-  let value = initialValue
-  const setValue = (newValue: string) => {
-    value = newValue
-  }
-  return [value, setValue]
 }
