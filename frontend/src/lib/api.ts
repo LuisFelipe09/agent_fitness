@@ -9,9 +9,13 @@ interface FetchOptions extends RequestInit {
 async function fetchAPI(endpoint: string, options: FetchOptions = {}) {
   const { userId, ...fetchOptions } = options
   
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...fetchOptions.headers,
+  }
+
+  // Add any existing headers
+  if (fetchOptions.headers) {
+    Object.assign(headers, fetchOptions.headers)
   }
 
   if (userId) {

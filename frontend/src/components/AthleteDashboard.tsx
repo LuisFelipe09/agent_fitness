@@ -17,17 +17,8 @@ export default function AthleteDashboard({ userId }: AthleteDashboardProps) {
   const [showWizard, setShowWizard] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  const handleGenerateWorkout = async () => {
-    setLoading(true)
-    try {
-      const plan = await api.generateWorkoutPlan(userId)
-      setWorkoutPlan(plan)
-    } catch (error) {
-      console.error('Failed to generate workout plan:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  // Removed unused handleGenerateWorkout function
+  // Users can click the wizard button directly
 
   const handleGenerateNutrition = async () => {
     setLoading(true)

@@ -1,12 +1,11 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
-import { Badge } from './ui/badge'
 import { Users, CheckCircle, Clock, FileText } from 'lucide-react'
 
 interface CoachDashboardProps {
   userId: string
 }
 
-export default function CoachDashboard({ userId }: CoachDashboardProps) {
+export default function CoachDashboard({ }: CoachDashboardProps) {
   // This would be populated from API calls
   const pendingReviews = 0
   const activeAthletes = 0
