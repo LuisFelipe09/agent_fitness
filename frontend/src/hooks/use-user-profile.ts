@@ -14,7 +14,7 @@ export function useUserProfile(userId: string) {
     const fetchUser = async () => {
       try {
         setLoading(true)
-        const userData = await api.getUser(userId)
+        const userData = await api.getMe(userId)
         setUser(userData)
         setProfile(userData.profile || null)
       } catch (err) {

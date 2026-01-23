@@ -8,7 +8,7 @@ interface FetchOptions extends RequestInit {
 
 async function fetchAPI(endpoint: string, options: FetchOptions = {}) {
   const { userId, ...fetchOptions } = options
-  
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }
@@ -36,27 +36,27 @@ async function fetchAPI(endpoint: string, options: FetchOptions = {}) {
 }
 
 export const api = {
-  // Users
-  async registerUser(data: { id: string; username: string; email?: string }) {
-    return fetchAPI('/users/register', {
+  // Users - Fixed endpoints to match backend
+  async createUser(data: { id: string; username: string }) {
+    return fetchAPI('/users/', {
       method: 'POST',
       body: JSON.stringify(data),
     })
   },
 
-  async getUser(userId: string) {
-    return fetchAPI(`/users/${userId}`)
+  async getMe(userId: string) {
+    return fetchAPI('/users/me', { userId })
   },
 
   async updateProfile(userId: string, profile: any) {
-    return fetchAPI(`/users/${userId}/profile`, {
+    return fetchAPI('/users/me/profile', {
       method: 'PUT',
       userId,
       body: JSON.stringify(profile),
     })
   },
 
-  // Workout Plans
+  // Workout Plans - Fixed endpoints
   async generateWorkoutPlan(userId: string) {
     return fetchAPI('/plans/workout', {
       method: 'POST',
@@ -64,8 +64,8 @@ export const api = {
     })
   },
 
-  async getWorkoutPlan(userId: string) {
-    return fetchAPI(`/plans/workout`, {
+  async getCurrentWorkoutPlan(userId: string) {
+    return fetchAPI('/plans/workout/current', {
       userId,
     })
   },
@@ -77,7 +77,7 @@ export const api = {
     })
   },
 
-  // Nutrition Plans
+  // Nutrition Plans - Fixed endpoints
   async generateNutritionPlan(userId: string) {
     return fetchAPI('/plans/nutrition', {
       method: 'POST',
@@ -85,8 +85,8 @@ export const api = {
     })
   },
 
-  async getNutritionPlan(userId: string) {
-    return fetchAPI(`/plans/nutrition`, {
+  async getCurrentNutritionPlan(userId: string) {
+    return fetchAPI('/plans/nutrition/current', {
       userId,
     })
   },
@@ -135,3 +135,4 @@ export const api = {
     })
   },
 }
+

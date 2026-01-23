@@ -6,7 +6,7 @@ from src.domain.repositories import (
     UserRepository
 )
 from src.application.version_service import VersionService
-from src.dependencies import (
+from src.interfaces.api.dependencies import (
     get_version_service,
     get_workout_repository,
     get_nutrition_repository,

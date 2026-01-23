@@ -126,13 +126,15 @@ class TestPlanningServiceWorkoutActivation:
         mock_user_repo
     ):
         """Test successful plan activation"""
-        # Arrange
+        # Arrange - using new WorkoutPlan structure
         approved_plan = WorkoutPlan(
             id="plan_123",
             user_id="user_123",
-            start_date=datetime.now(),
-            end_date=datetime.now(),
-            sessions=[],
+            title="Test Plan",
+            description="Test description",
+            weeks=4,
+            days_per_week=3,
+            workout_days=[],
             created_at=datetime.now(),
             state="approved"  # Plan must be approved to activate
         )

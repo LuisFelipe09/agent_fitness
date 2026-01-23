@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from src.dependencies import get_role_service
+from src.interfaces.api.dependencies import get_role_service
 from src.application.role_service import RoleService
 from src.domain.models import User
 from src.domain.permissions import Role

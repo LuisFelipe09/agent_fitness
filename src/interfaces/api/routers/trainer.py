@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from datetime import datetime
-from src.dependencies import (
+from src.interfaces.api.dependencies import (
     get_role_service,
     get_planning_service,
     get_workout_repository,

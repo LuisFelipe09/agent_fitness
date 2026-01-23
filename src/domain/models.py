@@ -91,67 +91,112 @@ class User:
 
 @dataclass
 class Exercise:
+    """Exercise definition within a workout day"""
     name: str
-    description: str
     sets: int
-    reps: str
-    rest_time: str  # e.g., "60s"
+    reps: str  # e.g., "10-12" or "10"
+    rest: str  # e.g., "60s" - renamed from rest_time to match frontend
+    notes: Optional[str] = None  # Additional instructions
+    description: Optional[str] = None  # Legacy field for backwards compatibility
     video_url: Optional[str] = None
 
 @dataclass
-class WorkoutSession:
-    day: str  # e.g., "Monday"
-    focus: str  # e.g., "Upper Body"
+class WorkoutDay:
+    """A single day in a workout plan - renamed from WorkoutSession to match frontend"""
+    day: str  # e.g., "Monday" or "Day 1"
+    focus: str  # e.g., "Upper Body", "Push", "Legs"
     exercises: List[Exercise]
+
+# Alias for backwards compatibility
+WorkoutSession = WorkoutDay
 
 @dataclass
 class WorkoutPlan:
+    """Complete workout plan with metadata"""
     id: str
     user_id: str
-    start_date: datetime
-    end_date: datetime
-    sessions: List[WorkoutSession]
+    title: str  # e.g., "4-Week Muscle Building Program"
+    description: str  # Summary of the plan
+    weeks: int  # Duration in weeks
+    days_per_week: int  # Training frequency
+    workout_days: List[WorkoutDay]  # Changed from sessions to match frontend
     created_at: datetime = field(default_factory=datetime.now)
+    updated_at: Optional[datetime] = None
     
     # Traceability fields
     created_by: Optional[str] = None  # User ID who created (client or trainer)
-    modified_at: Optional[datetime] = None
-    modified_by: Optional[str] = None  # User ID who last modified (usually trainer)
+    approved_by: Optional[str] = None  # User ID who approved
+    approved_at: Optional[datetime] = None
     
     # State management
-    state: str = "draft"  # draft, under_review, approved, active, completed
+    state: str = "draft"  # draft, under_review, approved, active, archived
+    
+    # Legacy compatibility
+    @property
+    def sessions(self) -> List[WorkoutDay]:
+        """Backwards compatibility alias for workout_days"""
+        return self.workout_days
+    
+    @property
+    def start_date(self) -> datetime:
+        """Legacy compatibility - derive from created_at"""
+        return self.created_at
+    
+    @property
+    def end_date(self) -> datetime:
+        """Legacy compatibility - derive from created_at + weeks"""
+        from datetime import timedelta
+        return self.created_at + timedelta(weeks=self.weeks)
 
 @dataclass
 class Meal:
-    name: str
-    description: str
+    """A single meal within a nutrition plan"""
+    name: str  # e.g., "Breakfast", "Lunch", "Dinner", "Snack"
+    time: str  # e.g., "8:00 AM" - added to match frontend
+    foods: List[str]  # List of food items - renamed from ingredients to match frontend
     calories: int
     protein: int
     carbs: int
     fats: int
-    ingredients: List[str]
+    description: Optional[str] = None  # Optional meal description
+    
+    # Legacy alias
+    @property
+    def ingredients(self) -> List[str]:
+        """Backwards compatibility alias for foods"""
+        return self.foods
 
 @dataclass
 class DailyMealPlan:
-    day: str
+    """Meal plan for a single day"""
+    day: str  # e.g., "Monday"
     meals: List[Meal]  # Breakfast, Lunch, Dinner, Snacks
 
 @dataclass
 class NutritionPlan:
+    """Complete nutrition plan with macros and meals"""
     id: str
     user_id: str
-    start_date: datetime
-    end_date: datetime
-    daily_plans: List[DailyMealPlan]
+    title: str  # e.g., "2000 Calorie Cutting Plan"
+    description: str  # Summary of the plan
+    daily_calories: int  # Target daily calories
+    protein_grams: int  # Target protein in grams
+    carbs_grams: int  # Target carbohydrates in grams  
+    fats_grams: int  # Target fats in grams
+    meals: List[Meal]  # Simplified: single day template - matches frontend
     created_at: datetime = field(default_factory=datetime.now)
+    updated_at: Optional[datetime] = None
     
     # Traceability fields
-    created_by: Optional[str] = None  # User ID who created (client or nutritionist)
-    modified_at: Optional[datetime] = None
-    modified_by: Optional[str] = None  # User ID who last modified (usually nutritionist)
+    created_by: Optional[str] = None
+    approved_by: Optional[str] = None
+    approved_at: Optional[datetime] = None
     
     # State management
-    state: str = "draft"  # draft, under_review, approved, active, completed
+    state: str = "draft"  # draft, under_review, approved, active, archived
+    
+    # Legacy compatibility for weekly plans
+    daily_plans: List[DailyMealPlan] = field(default_factory=list)
 
 @dataclass
 class PlanVersion:

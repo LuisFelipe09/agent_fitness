@@ -6,7 +6,7 @@ from unittest.mock import Mock, MagicMock
 from datetime import datetime
 from src.domain.models import (
     User, UserProfile, Goal, ActivityLevel,
-    WorkoutPlan, WorkoutSession, Exercise,
+    WorkoutPlan, WorkoutDay, Exercise,
     NutritionPlan, DailyMealPlan, Meal
 )
 
@@ -85,21 +85,21 @@ def sample_user():
 
 @pytest.fixture
 def sample_workout_plan():
-    """Sample workout plan"""
+    """Sample workout plan with new structure"""
     exercises = [
         Exercise(
             name="Bench Press",
-            description="Press the bar",
             sets=3,
             reps="10",
-            rest_time="60s",
-            video_url=None
+            rest="60s",  # Changed from rest_time
+            notes="Press the bar",
+            description="Chest exercise"
         )
     ]
     
-    sessions = [
-        WorkoutSession(
-            day="Monday",
+    workout_days = [
+        WorkoutDay(
+            day="Day 1",
             focus="Chest",
             exercises=exercises
         )
@@ -108,9 +108,11 @@ def sample_workout_plan():
     return WorkoutPlan(
         id="plan_123",
         user_id="user_123",
-        start_date=datetime.now(),
-        end_date=datetime.now(),
-        sessions=sessions,
+        title="Test Workout Plan",
+        description="A test plan for muscle building",
+        weeks=4,
+        days_per_week=3,
+        workout_days=workout_days,
         created_at=datetime.now(),
         created_by="user_123",
         state="draft"
@@ -119,33 +121,32 @@ def sample_workout_plan():
 
 @pytest.fixture
 def sample_nutrition_plan():
-    """Sample nutrition plan"""
+    """Sample nutrition plan with new structure"""
     meals = [
         Meal(
             name="Breakfast",
-            description="Oatmeal with fruits",
+            time="8:00 AM",
+            foods=["oats", "banana", "berries"],
             calories=400,
             protein=15,
             carbs=60,
             fats=10,
-            ingredients=["oats", "banana", "berries"]
-        )
-    ]
-    
-    daily_plans = [
-        DailyMealPlan(
-            day="Monday",
-            meals=meals
+            description="Oatmeal with fruits"
         )
     ]
     
     return NutritionPlan(
         id="nutrition_123",
         user_id="user_123",
-        start_date=datetime.now(),
-        end_date=datetime.now(),
-        daily_plans=daily_plans,
+        title="Test Nutrition Plan",
+        description="A balanced nutrition plan",
+        daily_calories=2000,
+        protein_grams=150,
+        carbs_grams=200,
+        fats_grams=65,
+        meals=meals,
         created_at=datetime.now(),
         created_by="user_123",
         state="draft"
     )
+

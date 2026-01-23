@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from src.dependencies import (
+from src.interfaces.api.dependencies import (
     get_user_service,
     get_user_repository,
 )

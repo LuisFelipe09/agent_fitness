@@ -5,7 +5,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from typing import Optional
 from src.domain.repositories import UserRepository
-from src.dependencies import get_user_repository
+from src.interfaces.api.dependencies import get_user_repository
 from src.domain.models import User
 from src.domain.permissions import Role, Permission
 from src.interfaces.api.security import decode_token
