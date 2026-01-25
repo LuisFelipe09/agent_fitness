@@ -123,6 +123,10 @@ class WorkoutPlan:
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: Optional[datetime] = None
     
+    # Plan context - captures what this plan was designed for
+    goal: Optional[Goal] = None  # Goal this plan was optimized for (e.g., muscle_gain, weight_loss)
+    target_activity_level: Optional[ActivityLevel] = None  # Activity level this plan targets
+    
     # Traceability fields
     created_by: Optional[str] = None  # User ID who created (client or trainer)
     approved_by: Optional[str] = None  # User ID who approved
@@ -186,6 +190,10 @@ class NutritionPlan:
     meals: List[Meal]  # Simplified: single day template - matches frontend
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: Optional[datetime] = None
+    
+    # Plan context - captures what this plan was designed for
+    goal: Optional[Goal] = None  # Goal this plan was optimized for (e.g., weight_loss, muscle_gain)
+    target_activity_level: Optional[ActivityLevel] = None  # Activity level this plan targets
     
     # Traceability fields
     created_by: Optional[str] = None

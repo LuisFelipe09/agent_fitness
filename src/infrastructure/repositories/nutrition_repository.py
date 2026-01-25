@@ -1,6 +1,6 @@
 from typing import Optional, List
 from sqlalchemy.orm import Session
-from src.domain.models import NutritionPlan, DailyMealPlan, Meal
+from src.domain.models import NutritionPlan, DailyMealPlan, Meal, Goal, ActivityLevel
 from src.domain.repositories import NutritionPlanRepository, PlanRepository
 from src.infrastructure.orm_models import NutritionPlanORM
 from dataclasses import asdict
@@ -49,7 +49,9 @@ class SqlAlchemyNutritionPlanRepository(NutritionPlanRepository):
             created_by=plan_orm.created_by,
             modified_at=plan_orm.modified_at,
             modified_by=plan_orm.modified_by,
-            state=plan_orm.state if plan_orm.state else "draft"
+            state=plan_orm.state if plan_orm.state else "draft",
+            goal=Goal(plan_orm.goal) if plan_orm.goal else None,  # Deserialize string to enum
+            target_activity_level=ActivityLevel(plan_orm.target_activity_level) if plan_orm.target_activity_level else None
         )
 
     def save(self, plan: NutritionPlan) -> None:
@@ -71,7 +73,9 @@ class SqlAlchemyNutritionPlanRepository(NutritionPlanRepository):
             created_by=plan.created_by,
             modified_at=plan.updated_at,  # Model uses updated_at, ORM uses modified_at
             modified_by=None,  # Not used in new model
-            state=plan.state
+            state=plan.state,
+            goal=plan.goal.value if plan.goal else None,  # Serialize enum to string
+            target_activity_level=plan.target_activity_level.value if plan.target_activity_level else None
         )
         self.db.add(plan_orm)
         self.db.commit()
@@ -86,13 +90,15 @@ class SqlAlchemyNutritionPlanRepository(NutritionPlanRepository):
             id=plan_orm.id,
             user_id=plan_orm.user_id,
             start_date=plan_orm.start_date,
-            end_date=plan.end_date,
+            end_date=plan_orm.end_date,
             daily_plans=self._deserialize_daily_plans(plan_orm.daily_plans_data),
             created_at=plan_orm.created_at,
             created_by=plan_orm.created_by,
             modified_at=plan_orm.modified_at,
             modified_by=plan_orm.modified_by,
-            state=plan_orm.state if plan_orm.state else "draft"
+            state=plan_orm.state if plan_orm.state else "draft",
+            goal=Goal(plan_orm.goal) if plan_orm.goal else None,  # Deserialize string to enum
+            target_activity_level=ActivityLevel(plan_orm.target_activity_level) if plan_orm.target_activity_level else None
         )
     
     def update(self, plan: NutritionPlan) -> None:
@@ -107,4 +113,6 @@ class SqlAlchemyNutritionPlanRepository(NutritionPlanRepository):
             plan_orm.modified_at = plan.modified_at
             plan_orm.modified_by = plan.modified_by
             plan_orm.state = plan.state
+            plan_orm.goal = plan.goal.value if plan.goal else None
+            plan_orm.target_activity_level = plan.target_activity_level.value if plan.target_activity_level else None
             self.db.commit()

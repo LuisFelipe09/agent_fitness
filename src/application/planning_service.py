@@ -66,7 +66,10 @@ class PlanningService:
             workout_days=workout_days,
             created_at=datetime.now(),
             created_by=user_id,
-            state="draft"
+            state="draft",
+            # Capture the goal and activity level this plan was designed for
+            goal=user.profile.goal,
+            target_activity_level=user.profile.activity_level
         )
         
         self.workout_repo.save(plan)
@@ -132,7 +135,10 @@ class PlanningService:
             daily_plans=daily_plans,
             created_at=datetime.now(),
             created_by=user_id,
-            state="draft"
+            state="draft",
+            # Capture the goal and activity level this plan was designed for
+            goal=user.profile.goal,
+            target_activity_level=user.profile.activity_level
         )
         
         self.nutrition_repo.save(plan)

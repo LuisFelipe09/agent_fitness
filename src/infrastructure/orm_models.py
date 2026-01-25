@@ -41,6 +41,10 @@ class WorkoutPlanORM(Base):
     # Storing complex nested structures as JSON for flexibility with AI outputs
     sessions_data = Column(JSON)
     
+    # Plan context - what this plan was designed for
+    goal = Column(String, nullable=True)  # Goal enum value (e.g., "muscle_gain", "weight_loss")
+    target_activity_level = Column(String, nullable=True)  # ActivityLevel enum value
+    
     # Traceability fields
     created_by = Column(String, nullable=True)  # User ID who created
     modified_at = Column(DateTime, nullable=True)
@@ -62,6 +66,10 @@ class NutritionPlanORM(Base):
     
     # Storing complex nested structures as JSON
     daily_plans_data = Column(JSON)
+    
+    # Plan context - what this plan was designed for
+    goal = Column(String, nullable=True)  # Goal enum value (e.g., "muscle_gain", "weight_loss")
+    target_activity_level = Column(String, nullable=True)  # ActivityLevel enum value
     
     # Traceability fields
     created_by = Column(String, nullable=True)  # User ID who created
