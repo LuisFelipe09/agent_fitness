@@ -19,6 +19,7 @@ export interface UserProfile {
   activity_level?: ActivityLevel
   dietary_restrictions?: string[]
   medical_conditions?: string[]
+  injuries?: string[]
 }
 
 export interface User {
