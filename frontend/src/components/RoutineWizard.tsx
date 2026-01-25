@@ -5,13 +5,24 @@ import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
 import { Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { api } from '@/lib/api'
-import type { WorkoutPlan, RoutineForm, UserProfile, ActivityLevel } from '@/lib/types'
+import type { WorkoutPlan, RoutineForm, UserProfile, ActivityLevel, Goal } from '@/lib/types'
 
 interface RoutineWizardProps {
   userId: string
   onComplete: (plan: WorkoutPlan) => void
   onCancel: () => void
 }
+
+// Default profile values for users without existing profiles
+const DEFAULT_PROFILE = {
+  age: 25,
+  weight: 70,
+  height: 170,
+  gender: 'male' as const
+}
+
+// Injury-related keywords for parsing preferences
+const INJURY_KEYWORDS = ['injury', 'injured', 'pain', 'hurt', 'surgery', 'limitation', 'issue', 'problem']
 
 export default function RoutineWizard({ userId, onComplete, onCancel }: RoutineWizardProps) {
   const [step, setStep] = useState(1)
@@ -56,13 +67,11 @@ export default function RoutineWizard({ userId, onComplete, onCancel }: RoutineW
   const parseInjuriesFromPreferences = (preferences: string): string[] => {
     if (!preferences.trim()) return []
     
-    // Look for common injury-related keywords
-    const injuryKeywords = ['injury', 'injured', 'pain', 'hurt', 'surgery', 'limitation', 'issue', 'problem']
     const lines = preferences.toLowerCase().split(/[.,;:\n]/).filter(line => line.trim())
     
     const injuries: string[] = []
     for (const line of lines) {
-      if (injuryKeywords.some(keyword => line.includes(keyword))) {
+      if (INJURY_KEYWORDS.some(keyword => line.includes(keyword))) {
         injuries.push(line.trim())
       }
     }
@@ -75,14 +84,14 @@ export default function RoutineWizard({ userId, onComplete, onCancel }: RoutineW
     try {
       // 1. Update user profile with wizard data
       const profileUpdate: UserProfile = {
-        goal: form.goal as any,
+        goal: form.goal as Goal,
         activity_level: mapExperienceLevelToActivityLevel(form.experienceLevel),
         injuries: parseInjuriesFromPreferences(form.preferences || ''),
         // Preserve existing profile data or use defaults
-        age: profile?.age || 25,
-        weight: profile?.weight || 70,
-        height: profile?.height || 170,
-        gender: profile?.gender || 'male',
+        age: profile?.age || DEFAULT_PROFILE.age,
+        weight: profile?.weight || DEFAULT_PROFILE.weight,
+        height: profile?.height || DEFAULT_PROFILE.height,
+        gender: profile?.gender || DEFAULT_PROFILE.gender,
         dietary_restrictions: profile?.dietary_restrictions || []
       }
       
