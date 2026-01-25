@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from src.domain.models import User
 from src.application.notification_service import NotificationService
-from src.dependencies import get_notification_service
+from src.interfaces.api.dependencies import get_notification_service
 from src.interfaces.api.auth import get_current_user
 
 router = APIRouter()

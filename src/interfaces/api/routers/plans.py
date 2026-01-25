@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from src.dependencies import (
+from src.interfaces.api.dependencies import (
     get_planning_service,
     get_workout_repository,
     get_nutrition_repository

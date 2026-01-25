@@ -2,13 +2,17 @@
 
 ## Overview
 
-The project follows a **layered architecture** inspired by Clean Architecture and Domain-Driven Design, with strict application of SOLID principles.
+The project follows a **full-stack layered architecture** combining Clean Architecture on the backend with modern React patterns on the frontend, with strict application of SOLID principles.
 
 ```mermaid
 graph TB
+    subgraph "Frontend Layer"
+        React[React + TypeScript<br/>Vite + Shadcn UI]
+        TG[Telegram Mini App<br/>Integration]
+    end
+    
     subgraph "Interface Layer"
         API[REST API<br/>FastAPI]
-        Frontend[Frontend<br/>HTML/JS]
     end
     
     subgraph "Application Layer"
@@ -24,12 +28,13 @@ graph TB
     
     subgraph "Infrastructure Layer"
         RepoImpl[Repository Implementations<br/>SQLAlchemy]
-        AI[AI Service<br/>Gemini]
-        DB[(SQLite DB)]
+        AI[AI Service<br/>Gemini/OpenAI]
+        DB[(SQLite/PostgreSQL)]
     end
     
+    React --> API
+    TG --> React
     API --> Services
-    Frontend --> API
     Services --> Models
     Services --> Repos
     Auth --> Repos
@@ -37,6 +42,7 @@ graph TB
     RepoImpl --> DB
     Services --> AI
     
+    style React fill:#61dafb
     style Models fill:#e1f5ff
     style Repos fill:#e1f5ff
     style Services fill:#fff4e1
@@ -45,6 +51,168 @@ graph TB
 ```
 
 ---
+
+## Full Stack Architecture
+
+### Frontend Stack
+- **Framework**: React 18 with TypeScript
+- **Build Tool**: Vite (fast HMR and optimized builds)
+- **UI Library**: Shadcn UI v4 (accessible components)
+- **Styling**: Tailwind CSS v4 (utility-first CSS)
+- **Integration**: Telegram Mini App SDK
+- **State Management**: React hooks (useState, useEffect, custom hooks)
+- **API Client**: Fetch-based client with TypeScript types
+
+### Backend Stack
+- **Framework**: FastAPI (high-performance Python web framework)
+- **ORM**: SQLAlchemy (database abstraction)
+- **Validation**: Pydantic (data validation and serialization)
+- **AI Providers**: Google Gemini / OpenAI GPT
+- **Database**: SQLite (dev) / PostgreSQL (prod)
+
+---
+
+---
+
+## Frontend Architecture
+
+### Directory Structure
+
+```
+frontend/
+├── src/
+│   ├── main.tsx              # React app entry point
+│   ├── App.tsx               # Main app component with routing logic
+│   ├── index.css             # Global styles and Tailwind setup
+│   ├── components/
+│   │   ├── ui/              # Shadcn UI components (Button, Card, etc.)
+│   │   ├── WelcomeScreen.tsx
+│   │   ├── RoleSelector.tsx
+│   │   ├── AthleteDashboard.tsx
+│   │   ├── CoachDashboard.tsx
+│   │   ├── RoutineWizard.tsx
+│   │   ├── RoutineReviewPanel.tsx
+│   │   ├── ApprovalStatusBadge.tsx
+│   │   ├── ApprovalNotification.tsx
+│   │   ├── ExerciseFormTips.tsx
+│   │   └── ExerciseSuggestionsPanel.tsx
+│   ├── hooks/
+│   │   ├── use-telegram.ts   # Telegram Mini App integration
+│   │   ├── use-user-profile.ts
+│   │   └── use-mobile.ts
+│   └── lib/
+│       ├── api.ts            # FastAPI client
+│       ├── types.ts          # TypeScript type definitions
+│       └── utils.ts          # Utility functions (cn, etc.)
+├── package.json
+├── tsconfig.json
+├── vite.config.ts
+└── tailwind.config.js
+```
+
+### Component Architecture
+
+#### 1. **Presentation Components** (`components/ui/`)
+- Reusable, accessible UI components from Shadcn UI
+- No business logic, only styling and props
+- Examples: Button, Card, Badge, Input, Textarea
+
+#### 2. **Business Components** (`components/`)
+- Domain-specific components with business logic
+- Connect to API and manage state
+- Examples: AthleteDashboard, RoutineWizard, RoleSelector
+
+#### 3. **Custom Hooks** (`hooks/`)
+- Reusable stateful logic
+- `use-telegram.ts`: Telegram Web App SDK integration
+- `use-user-profile.ts`: User profile state management
+- `use-mobile.ts`: Responsive design utilities
+
+#### 4. **API Client** (`lib/api.ts`)
+```typescript
+// Centralized API communication
+export const api = {
+  async generateWorkoutPlan(userId: string) { ... },
+  async getNotifications(userId: string) { ... },
+  // ... other endpoints
+}
+```
+
+### Type Safety
+
+All backend models are mirrored in `lib/types.ts` for end-to-end type safety:
+
+```typescript
+export interface WorkoutPlan {
+  id: string
+  user_id: string
+  title: string
+  state: PlanState  // 'draft' | 'approved' | 'active' | 'archived'
+  workout_days: WorkoutDay[]
+  // ... matches backend Pydantic models
+}
+```
+
+### Telegram Mini App Integration
+
+The frontend seamlessly integrates with Telegram using `use-telegram.ts`:
+
+```typescript
+const { webApp, user, isInTelegram } = useTelegram()
+
+// Access Telegram user info
+if (user) {
+  console.log(user.id, user.username)
+}
+
+// Use Telegram UI features
+webApp?.MainButton.onClick(() => { ... })
+```
+
+### Development Workflow
+
+1. **Development Mode**: Vite dev server (port 5173) proxies API calls to FastAPI (port 8000)
+2. **Production Mode**: FastAPI serves the built frontend from `frontend/dist/`
+
+```typescript
+// vite.config.ts proxy configuration
+server: {
+  proxy: {
+    '/api': {
+      target: 'http://localhost:8000',
+      changeOrigin: true,
+    }
+  }
+}
+```
+
+### Design System
+
+Using Tailwind CSS with a custom theme defined in CSS variables:
+
+```css
+:root {
+  --primary: 221.2 83.2% 53.3%;
+  --secondary: 210 40% 96.1%;
+  --background: 0 0% 100%;
+  /* ... */
+}
+```
+
+Components use `cn()` utility for conditional styling:
+
+```typescript
+import { cn } from "@/lib/utils"
+
+<button className={cn(
+  "base-styles",
+  variant === "primary" && "primary-styles"
+)} />
+```
+
+---
+
+## Backend Architecture
 
 ## Layer Structure
 

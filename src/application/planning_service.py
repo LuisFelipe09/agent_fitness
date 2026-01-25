@@ -2,7 +2,7 @@ from typing import Optional, TypeVar, Generic
 from datetime import datetime
 from src.domain.models import (
     User, UserProfile, WorkoutPlan, NutritionPlan,
-    WorkoutSession, Exercise, DailyMealPlan, Meal
+    WorkoutSession, WorkoutDay, Exercise, DailyMealPlan, Meal
 )
 from src.domain.repositories import UserRepository, WorkoutPlanRepository, NutritionPlanRepository
 from src.application.interfaces import AIService
@@ -32,36 +32,38 @@ class PlanningService:
         plan_data = self.ai_service.generate_workout_plan(user.profile)
         
         # Convert raw data to domain objects
-        sessions = []
-        if 'sessions' in plan_data:
-            for s in plan_data['sessions']:
-                exercises = []
-                if 'exercises' in s:
-                    for e in s['exercises']:
-                        exercises.append(Exercise(
-                            name=e.get('name', 'Unknown Exercise'),
-                            description=e.get('description', ''),
-                            sets=e.get('sets', 0),
-                            reps=str(e.get('reps', '')),
-                            rest_time=str(e.get('rest_time', '')),
-                            video_url=e.get('video_url')
-                        ))
-                sessions.append(WorkoutSession(
-                    day=s.get('day', 'Unknown Day'),
-                    focus=s.get('focus', 'General'),
-                    exercises=exercises
-                ))
+        workout_days = []
+        raw_days = plan_data.get('workout_days', plan_data.get('sessions', []))
+        for s in raw_days:
+            exercises = []
+            if 'exercises' in s:
+                for e in s['exercises']:
+                    exercises.append(Exercise(
+                        name=e.get('name', 'Unknown Exercise'),
+                        sets=e.get('sets', 0),
+                        reps=str(e.get('reps', '')),
+                        rest=str(e.get('rest', e.get('rest_time', '60s'))),
+                        notes=e.get('notes'),
+                        description=e.get('description'),
+                        video_url=e.get('video_url')
+                    ))
+            workout_days.append(WorkoutDay(
+                day=s.get('day', 'Unknown Day'),
+                focus=s.get('focus', 'General'),
+                exercises=exercises
+            ))
 
-        # Create domain plan
+        # Create domain plan with new structure
         import uuid
-        from datetime import datetime, timedelta
         
         plan = WorkoutPlan(
             id=str(uuid.uuid4()),
             user_id=user_id,
-            start_date=datetime.now(),
-            end_date=datetime.now() + timedelta(days=7),
-            sessions=sessions,
+            title=plan_data.get('title', f'Workout Plan for {user.username}'),
+            description=plan_data.get('description', 'AI-generated workout plan'),
+            weeks=plan_data.get('weeks', 4),
+            days_per_week=plan_data.get('days_per_week', len(workout_days)),
+            workout_days=workout_days,
             created_at=datetime.now(),
             created_by=user_id,
             state="draft"
@@ -78,36 +80,55 @@ class PlanningService:
         # Get raw data from AI service
         plan_data = self.ai_service.generate_nutrition_plan(user.profile)
         
-        # Convert raw data to domain objects
+        # Convert raw data to domain objects - new format with meals array
+        meals = []
+        raw_meals = plan_data.get('meals', [])
+        for m in raw_meals:
+            meals.append(Meal(
+                name=m.get('name', 'Unknown Meal'),
+                time=m.get('time', '12:00 PM'),
+                foods=m.get('foods', m.get('ingredients', [])),
+                calories=m.get('calories', 0),
+                protein=m.get('protein', 0),
+                carbs=m.get('carbs', 0),
+                fats=m.get('fats', 0),
+                description=m.get('description')
+            ))
+        
+        # Also handle legacy daily_plans format if present
         daily_plans = []
         if 'daily_plans' in plan_data:
             for d in plan_data['daily_plans']:
-                meals = []
-                if 'meals' in d:
-                    for m in d['meals']:
-                        meals.append(Meal(
-                            name=m.get('name', 'Unknown Meal'),
-                            description=m.get('description', ''),
-                            calories=m.get('calories', 0),
-                            protein=m.get('protein', 0),
-                            carbs=m.get('carbs', 0),
-                            fats=m.get('fats', 0),
-                            ingredients=m.get('ingredients', [])
-                        ))
+                day_meals = []
+                for m in d.get('meals', []):
+                    day_meals.append(Meal(
+                        name=m.get('name', 'Unknown Meal'),
+                        time=m.get('time', '12:00 PM'),
+                        foods=m.get('foods', m.get('ingredients', [])),
+                        calories=m.get('calories', 0),
+                        protein=m.get('protein', 0),
+                        carbs=m.get('carbs', 0),
+                        fats=m.get('fats', 0),
+                        description=m.get('description')
+                    ))
                 daily_plans.append(DailyMealPlan(
                     day=d.get('day', 'Unknown Day'),
-                    meals=meals
+                    meals=day_meals
                 ))
 
-        # Create domain plan
+        # Create domain plan with new structure
         import uuid
-        from datetime import datetime, timedelta
         
         plan = NutritionPlan(
             id=str(uuid.uuid4()),
             user_id=user_id,
-            start_date=datetime.now(),
-            end_date=datetime.now() + timedelta(days=7),
+            title=plan_data.get('title', f'Nutrition Plan for {user.username}'),
+            description=plan_data.get('description', 'AI-generated nutrition plan'),
+            daily_calories=plan_data.get('daily_calories', 2000),
+            protein_grams=plan_data.get('protein_grams', 150),
+            carbs_grams=plan_data.get('carbs_grams', 200),
+            fats_grams=plan_data.get('fats_grams', 65),
+            meals=meals,
             daily_plans=daily_plans,
             created_at=datetime.now(),
             created_by=user_id,

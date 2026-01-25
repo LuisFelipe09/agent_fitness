@@ -54,19 +54,19 @@ class SqlAlchemyWorkoutPlanRepository(WorkoutPlanRepository):
         )
 
     def save(self, plan: WorkoutPlan) -> None:
-        # Serialize sessions to JSON
-        sessions_data = [asdict(s) for s in plan.sessions]
+        # Serialize workout_days to JSON (uses sessions property for backwards compat)
+        sessions_data = [asdict(s) for s in plan.workout_days]
         
         plan_orm = WorkoutPlanORM(
             id=plan.id,
             user_id=plan.user_id,
-            start_date=plan.start_date,
-            end_date=plan.end_date,
+            start_date=plan.start_date,  # Uses property that returns created_at
+            end_date=plan.end_date,      # Uses property that returns created_at + weeks
             created_at=plan.created_at,
             sessions_data=sessions_data,
             created_by=plan.created_by,
-            modified_at=plan.modified_at,
-            modified_by=plan.modified_by,
+            modified_at=plan.updated_at,  # Model uses updated_at, ORM uses modified_at
+            modified_by=None,  # Not used in new model
             state=plan.state
         )
         self.db.add(plan_orm)

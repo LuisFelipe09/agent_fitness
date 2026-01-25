@@ -48,7 +48,7 @@ def get_comment_repository(db: Session = Depends(get_db)) -> PlanCommentReposito
 def get_notification_repository(db: Session = Depends(get_db)) -> NotificationRepository:
     return SqlAlchemyNotificationRepository(db)
 
-from src.config import get_settings
+from src.infrastructure.config import get_settings
 
 # Service Providers
 def get_ai_service() -> AIService:

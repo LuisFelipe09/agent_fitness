@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from src.domain.models import User
 from src.application.comment_service import CommentService
 from src.application.notification_service import NotificationService
-from src.dependencies import (
+from src.interfaces.api.dependencies import (
     get_comment_service,
     get_notification_service
 )
