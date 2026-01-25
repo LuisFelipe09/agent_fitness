@@ -7,7 +7,7 @@ class GeminiAIService(BaseAIService):
     
     def __init__(self, api_key: str):
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-pro')
+        self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
     
     def _call_ai_api(self, prompt: str, system_message: str = "") -> str:
         """Call Gemini API and return raw text response"""

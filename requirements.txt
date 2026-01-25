@@ -4,6 +4,7 @@ sqlalchemy
 pydantic[email]
 python-telegram-bot
 google-generativeai
+openai
 python-dotenv
 pytest
 httpx

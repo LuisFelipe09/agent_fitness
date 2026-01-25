@@ -53,18 +53,24 @@ class SqlAlchemyNutritionPlanRepository(NutritionPlanRepository):
         )
 
     def save(self, plan: NutritionPlan) -> None:
-        daily_plans_data = [asdict(d) for d in plan.daily_plans]
+        # Serialize meal data - use meals array (new format) or daily_plans (legacy)
+        if plan.meals:
+            # New format: single day template with meals array
+            daily_plans_data = [{"day": "Template", "meals": [asdict(m) for m in plan.meals]}]
+        else:
+            # Legacy format: multiple daily plans
+            daily_plans_data = [asdict(d) for d in plan.daily_plans]
         
         plan_orm = NutritionPlanORM(
             id=plan.id,
             user_id=plan.user_id,
-            start_date=plan.start_date,
-            end_date=plan.end_date,
+            start_date=plan.created_at,  # NutritionPlan doesn't have start_date, use created_at
+            end_date=plan.created_at,    # Same for end_date
             created_at=plan.created_at,
             daily_plans_data=daily_plans_data,
             created_by=plan.created_by,
-            modified_at=plan.modified_at,
-            modified_by=plan.modified_by,
+            modified_at=plan.updated_at,  # Model uses updated_at, ORM uses modified_at
+            modified_by=None,  # Not used in new model
             state=plan.state
         )
         self.db.add(plan_orm)
