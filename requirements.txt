@@ -3,7 +3,7 @@ uvicorn[standard]
 sqlalchemy
 pydantic[email]
 python-telegram-bot
-google-generativeai
+google-genai
 openai
 python-dotenv
 pytest
