@@ -192,7 +192,7 @@ export default function RoutineWizard({ userId, onComplete, onCancel }: RoutineW
             </div>
           )}
 
-          {step === 3 && (
+          {step === 2 && (
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium mb-2 block">What's your primary goal?</label>
@@ -236,7 +236,7 @@ export default function RoutineWizard({ userId, onComplete, onCancel }: RoutineW
             </div>
           )}
 
-          {step === 2 && (
+          {step === 3 && (
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium mb-2 block">
