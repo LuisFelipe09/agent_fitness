@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from './ui/card'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
 import { Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { api } from '@/lib/api'
-import type { WorkoutPlan, RoutineForm } from '@/lib/types'
+import type { WorkoutPlan, RoutineForm, UserProfile, ActivityLevel, Goal } from '@/lib/types'
 
 interface RoutineWizardProps {
   userId: string
@@ -13,9 +13,21 @@ interface RoutineWizardProps {
   onCancel: () => void
 }
 
+// Default profile values for users without existing profiles
+const DEFAULT_PROFILE = {
+  age: 25,
+  weight: 70,
+  height: 170,
+  gender: 'male' as const
+}
+
+// Injury-related keywords for parsing preferences
+const INJURY_KEYWORDS = ['injury', 'injured', 'pain', 'hurt', 'surgery', 'limitation', 'issue', 'problem']
+
 export default function RoutineWizard({ userId, onComplete, onCancel }: RoutineWizardProps) {
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
+  const [profile, setProfile] = useState<UserProfile | null>(null)
   const [form, setForm] = useState<RoutineForm>({
     goal: 'muscle_gain',
     experienceLevel: 'intermediate',
@@ -25,17 +37,72 @@ export default function RoutineWizard({ userId, onComplete, onCancel }: RoutineW
     preferences: ''
   })
 
+  // Fetch existing user profile on mount
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const userData = await api.getMe(userId)
+        setProfile(userData.profile || null)
+      } catch (error) {
+        console.error('Failed to fetch user profile:', error)
+      }
+    }
+    fetchProfile()
+  }, [userId])
+
   const handleNext = () => setStep(step + 1)
   const handleBack = () => setStep(step - 1)
+
+  // Map experience level to activity level
+  const mapExperienceLevelToActivityLevel = (experienceLevel: string): ActivityLevel => {
+    const mapping: Record<string, ActivityLevel> = {
+      'beginner': 'sedentary',
+      'intermediate': 'moderately_active',
+      'advanced': 'very_active'
+    }
+    return mapping[experienceLevel] || 'moderately_active'
+  }
+
+  // Parse injuries from preferences text field
+  const parseInjuriesFromPreferences = (preferences: string): string[] => {
+    if (!preferences.trim()) return []
+    
+    const lines = preferences.toLowerCase().split(/[.,;:\n]/).filter(line => line.trim())
+    
+    const injuries: string[] = []
+    for (const line of lines) {
+      if (INJURY_KEYWORDS.some(keyword => line.includes(keyword))) {
+        injuries.push(line.trim())
+      }
+    }
+    
+    return injuries
+  }
 
   const handleSubmit = async () => {
     setLoading(true)
     try {
-      // In a real implementation, we'd pass the form data to the API
+      // 1. Update user profile with wizard data
+      const profileUpdate: UserProfile = {
+        goal: form.goal as Goal,
+        activity_level: mapExperienceLevelToActivityLevel(form.experienceLevel),
+        injuries: parseInjuriesFromPreferences(form.preferences || ''),
+        // Preserve existing profile data or use defaults
+        age: profile?.age || DEFAULT_PROFILE.age,
+        weight: profile?.weight || DEFAULT_PROFILE.weight,
+        height: profile?.height || DEFAULT_PROFILE.height,
+        gender: profile?.gender || DEFAULT_PROFILE.gender,
+        dietary_restrictions: profile?.dietary_restrictions || []
+      }
+      
+      await api.updateProfile(userId, profileUpdate)
+      
+      // 2. Generate plan with updated profile
       const plan = await api.generateWorkoutPlan(userId)
       onComplete(plan)
     } catch (error) {
       console.error('Failed to generate plan:', error)
+      // TODO: Show error toast to user
     } finally {
       setLoading(false)
     }

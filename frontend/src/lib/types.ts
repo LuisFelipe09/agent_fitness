@@ -19,6 +19,7 @@ export interface UserProfile {
   activity_level?: ActivityLevel
   dietary_restrictions?: string[]
   medical_conditions?: string[]
+  injuries?: string[]
 }
 
 export interface User {
@@ -59,6 +60,9 @@ export interface WorkoutPlan {
   created_by?: string
   approved_by?: string
   approved_at?: string
+  // Plan context - what this plan was designed for
+  goal?: Goal
+  target_activity_level?: ActivityLevel
 }
 
 export interface Meal {
@@ -87,6 +91,9 @@ export interface NutritionPlan {
   created_by?: string
   approved_by?: string
   approved_at?: string
+  // Plan context - what this plan was designed for
+  goal?: Goal
+  target_activity_level?: ActivityLevel
 }
 
 export interface Notification {
