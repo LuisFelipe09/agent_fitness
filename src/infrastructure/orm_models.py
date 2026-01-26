@@ -13,8 +13,7 @@ class UserORM(Base):
     # Roles stored as JSON array for flexibility
     roles = Column(JSON, default=["client"])
     
-    # Profile data stored as JSON for simplicity in this MVP, 
-    # but could be normalized in a real app
+    # Profile data stored as JSON for simplicity in this MVP
     profile_data = Column(JSON, nullable=True)
     
     # Authentication fields
@@ -34,24 +33,21 @@ class WorkoutPlanORM(Base):
 
     id = Column(String, primary_key=True, index=True)
     user_id = Column(String, ForeignKey("users.id"))
-    start_date = Column(DateTime)
-    end_date = Column(DateTime)
     created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, nullable=True) # Renamed from modified_at for consistency
     
     # Storing complex nested structures as JSON for flexibility with AI outputs
     sessions_data = Column(JSON)
     
     # Plan context - what this plan was designed for
-    goal = Column(String, nullable=True)  # Goal enum value (e.g., "muscle_gain", "weight_loss")
-    target_activity_level = Column(String, nullable=True)  # ActivityLevel enum value
+    goal = Column(String, nullable=True)
+    target_activity_level = Column(String, nullable=True)
     
     # Traceability fields
-    created_by = Column(String, nullable=True)  # User ID who created
-    modified_at = Column(DateTime, nullable=True)
-    modified_by = Column(String, nullable=True)  # User ID who modified
+    created_by = Column(String, nullable=True)
     
     # State management
-    state = Column(String, default="draft")  # draft, under_review, approved, active, completed
+    state = Column(String, default="draft")
 
     user = relationship("UserORM", back_populates="workout_plans", foreign_keys=[user_id])
 
@@ -60,24 +56,21 @@ class NutritionPlanORM(Base):
 
     id = Column(String, primary_key=True, index=True)
     user_id = Column(String, ForeignKey("users.id"))
-    start_date = Column(DateTime)
-    end_date = Column(DateTime)
     created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, nullable=True) # Renamed from modified_at
     
     # Storing complex nested structures as JSON
     daily_plans_data = Column(JSON)
     
-    # Plan context - what this plan was designed for
-    goal = Column(String, nullable=True)  # Goal enum value (e.g., "muscle_gain", "weight_loss")
-    target_activity_level = Column(String, nullable=True)  # ActivityLevel enum value
+    # Plan context
+    goal = Column(String, nullable=True)
+    target_activity_level = Column(String, nullable=True)
     
     # Traceability fields
-    created_by = Column(String, nullable=True)  # User ID who created
-    modified_at = Column(DateTime, nullable=True)
-    modified_by = Column(String, nullable=True)  # User ID who modified
+    created_by = Column(String, nullable=True)
     
     # State management
-    state = Column(String, default="draft")  # draft, under_review, approved, active, completed
+    state = Column(String, default="draft")
 
     user = relationship("UserORM", back_populates="nutrition_plans", foreign_keys=[user_id])
 
@@ -86,13 +79,13 @@ class PlanVersionORM(Base):
     __tablename__ = "plan_versions"
     
     id = Column(String, primary_key=True, index=True)
-    plan_id = Column(String, index=True, nullable=False)  # ID of the plan
-    plan_type = Column(String, nullable=False)  # "workout" or "nutrition"
+    plan_id = Column(String, index=True, nullable=False)
+    plan_type = Column(String, nullable=False)
     version_number = Column(Integer, nullable=False)
     created_by = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.now, nullable=False)
     changes_summary = Column(Text)
-    data_snapshot = Column(JSON, nullable=False)  # Complete snapshot
+    data_snapshot = Column(JSON, nullable=False)
     state_at_version = Column(String, nullable=False)
 
 class PlanCommentORM(Base):
@@ -101,13 +94,13 @@ class PlanCommentORM(Base):
     
     id = Column(String, primary_key=True, index=True)
     plan_id = Column(String, index=True, nullable=False)
-    plan_type = Column(String, nullable=False)  # "workout" or "nutrition"
+    plan_type = Column(String, nullable=False)
     author_id = Column(String, ForeignKey("users.id"), nullable=False)
-    author_role = Column(String, nullable=False)  # client, trainer, nutritionist
+    author_role = Column(String, nullable=False)
     content = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.now, nullable=False)
     edited_at = Column(DateTime, nullable=True)
-    is_internal = Column(Boolean, default=False)  # Only for professionals
+    is_internal = Column(Boolean, default=False)
 
 class NotificationORM(Base):
     """Notifications for users"""
@@ -115,10 +108,10 @@ class NotificationORM(Base):
     
     id = Column(String, primary_key=True, index=True)
     user_id = Column(String, ForeignKey("users.id"), index=True, nullable=False)
-    type = Column(String, nullable=False)  # From NotificationType enum
+    type = Column(String, nullable=False)
     title = Column(String, nullable=False)
     message = Column(Text, nullable=False)
-    related_entity_type = Column(String, nullable=True)  # "workout_plan", etc
+    related_entity_type = Column(String, nullable=True)
     related_entity_id = Column(String, nullable=True)
     is_read = Column(Boolean, default=False, index=True)
     created_at = Column(DateTime, default=datetime.now, nullable=False)
