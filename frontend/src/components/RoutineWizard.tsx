@@ -13,14 +13,6 @@ interface RoutineWizardProps {
   onCancel: () => void
 }
 
-// Default profile values for users without existing profiles
-const DEFAULT_PROFILE = {
-  age: 25,
-  weight: 70,
-  height: 170,
-  gender: 'male' as const
-}
-
 // Injury-related keywords for parsing preferences
 const INJURY_KEYWORDS = ['injury', 'injured', 'pain', 'hurt', 'surgery', 'limitation', 'issue', 'problem']
 
@@ -29,6 +21,10 @@ export default function RoutineWizard({ userId, onComplete, onCancel }: RoutineW
   const [loading, setLoading] = useState(false)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [form, setForm] = useState<RoutineForm>({
+    age: 25,
+    weight: 70,
+    height: 170,
+    gender: 'male',
     goal: 'muscle_gain',
     experienceLevel: 'intermediate',
     daysPerWeek: 4,
@@ -43,6 +39,17 @@ export default function RoutineWizard({ userId, onComplete, onCancel }: RoutineW
       try {
         const userData = await api.getMe(userId)
         setProfile(userData.profile || null)
+        
+        // Pre-fill form with existing profile data if available
+        if (userData.profile) {
+          setForm(prev => ({
+            ...prev,
+            age: userData.profile.age || prev.age,
+            weight: userData.profile.weight || prev.weight,
+            height: userData.profile.height || prev.height,
+            gender: userData.profile.gender || prev.gender
+          }))
+        }
       } catch (error) {
         console.error('Failed to fetch user profile:', error)
       }
@@ -87,11 +94,11 @@ export default function RoutineWizard({ userId, onComplete, onCancel }: RoutineW
         goal: form.goal as Goal,
         activity_level: mapExperienceLevelToActivityLevel(form.experienceLevel),
         injuries: parseInjuriesFromPreferences(form.preferences || ''),
-        // Preserve existing profile data or use defaults
-        age: profile?.age || DEFAULT_PROFILE.age,
-        weight: profile?.weight || DEFAULT_PROFILE.weight,
-        height: profile?.height || DEFAULT_PROFILE.height,
-        gender: profile?.gender || DEFAULT_PROFILE.gender,
+        // Use user-provided profile data from form
+        age: form.age,
+        weight: form.weight,
+        height: form.height,
+        gender: form.gender,
         dietary_restrictions: profile?.dietary_restrictions || []
       }
       
@@ -112,16 +119,80 @@ export default function RoutineWizard({ userId, onComplete, onCancel }: RoutineW
     setForm({ ...form, [field]: value })
   }
 
+  // Validation for Step 1 (Basic Profile)
+  const canProceedFromStep1 = () => {
+    return form.age >= 13 && form.age <= 100 &&
+           form.weight >= 30 && form.weight <= 200 &&
+           form.height >= 100 && form.height <= 250 &&
+           (form.gender === 'male' || form.gender === 'female' || form.gender === 'other')
+  }
+
   return (
     <div className="min-h-screen bg-background p-4 md:p-8 flex items-center justify-center">
       <Card className="max-w-2xl w-full">
         <CardHeader>
           <CardTitle>Create Your Workout Plan</CardTitle>
-          <CardDescription>Step {step} of 3 - Let's personalize your routine</CardDescription>
+          <CardDescription>Step {step} of 4 - Let's personalize your routine</CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-6">
           {step === 1 && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Age</label>
+                  <Input
+                    type="number"
+                    min="13"
+                    max="100"
+                    value={form.age}
+                    onChange={(e) => updateForm('age', parseInt(e.target.value) || 0)}
+                    placeholder="25"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Gender</label>
+                  <select
+                    className="w-full p-2 border rounded-md bg-background"
+                    value={form.gender}
+                    onChange={(e) => updateForm('gender', e.target.value)}
+                  >
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Weight (kg)</label>
+                  <Input
+                    type="number"
+                    min="30"
+                    max="200"
+                    step="0.1"
+                    value={form.weight}
+                    onChange={(e) => updateForm('weight', parseFloat(e.target.value) || 0)}
+                    placeholder="70"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Height (cm)</label>
+                  <Input
+                    type="number"
+                    min="100"
+                    max="250"
+                    value={form.height}
+                    onChange={(e) => updateForm('height', parseInt(e.target.value) || 0)}
+                    placeholder="170"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {step === 3 && (
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium mb-2 block">What's your primary goal?</label>
@@ -230,7 +301,7 @@ export default function RoutineWizard({ userId, onComplete, onCancel }: RoutineW
             </div>
           )}
 
-          {step === 3 && (
+          {step === 4 && (
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium mb-2 block">
@@ -264,8 +335,8 @@ export default function RoutineWizard({ userId, onComplete, onCancel }: RoutineW
             {step === 1 ? 'Cancel' : 'Back'}
           </Button>
 
-          {step < 3 ? (
-            <Button onClick={handleNext}>
+          {step < 4 ? (
+            <Button onClick={handleNext} disabled={step === 1 && !canProceedFromStep1()}>
               Next
               <ChevronRight className="ml-2 h-4 w-4" />
             </Button>

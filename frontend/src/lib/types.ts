@@ -129,6 +129,12 @@ export interface PlanVersion {
 
 // Frontend-specific types
 export interface RoutineForm {
+  // Profile fields
+  age: number
+  weight: number
+  height: number
+  gender: Gender
+  // Workout preferences
   goal: string
   experienceLevel: 'beginner' | 'intermediate' | 'advanced'
   daysPerWeek: number
